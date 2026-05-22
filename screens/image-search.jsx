@@ -97,6 +97,7 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
 
   return (
     <div role="dialog" aria-modal="true"
+         className="modal-overlay"
          style={{
            position: 'fixed', inset: 0, zIndex: 1000,
            background: 'rgba(20, 18, 14, .45)',
@@ -106,6 +107,7 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
          }}
          onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
+           className="modal-shell"
            style={{
              width: 'min(100%, 1080px)', height: 'min(100%, 760px)',
              background: 'var(--paper)', borderRadius: 18,
@@ -245,7 +247,7 @@ function SearchPane({ initialQuery, onSelect }) {
               “<strong style={{ color: 'var(--ink)' }}>{q}</strong>”
               <span style={{ color: 'var(--ink-3)' }}> · all freely licensed</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="grid-search-results">
               {results.map((r, i) => (
                 <ResultCard key={r.id} idx={i} result={r}
                             active={active === i}
@@ -375,7 +377,7 @@ function GeneratePane({ initialQuery, onSelect }) {
               “<strong style={{ color: 'var(--ink)' }}>{prompt}</strong>”
               <span style={{ color: 'var(--ink-3)' }}> · {stylePreset.label.toLowerCase()} style</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="grid-search-results">
               {seeds.map((seed, i) => (
                 <GenerateTile key={seed} idx={i}
                               url={pollinationUrl(fullPrompt, seed)}
@@ -641,7 +643,7 @@ function ResultsSkeleton({ label }) {
         <span className="search-spinner" />
         {label || 'Loading…'}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div className="grid-search-results">
         {heights.map((h, i) => (
           <div key={i} style={{
             height: h, borderRadius: 12,

@@ -1,19 +1,19 @@
-// app.jsx — main router + tweaks panel
+// app.jsx — top-level router + provider wiring
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "regular",
   "textScale": 100,
   "categoryColors": true,
   "showTimes": true,
-  "darkRail": false,
   "accent": "#3D4A3D"
 }/*EDITMODE-END*/;
 
-function App() {
-  const [screen, setScreen] = React.useState('builder'); // open on the builder so the image search is one click away
+function AppInner() {
+  const { route, navigate } = useRouter();
+  const store = useStore();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
-  // Apply tweaks as CSS variables on the root.
+  // Apply tweaks ────────────────────────────────────────────────────
   React.useEffect(() => {
     const r = document.documentElement;
     const scale = (t.textScale || 100) / 100;
@@ -21,67 +21,52 @@ function App() {
     document.body.style.fontSize = (15 * scale) + 'px';
 
     if (!t.categoryColors) {
-      r.style.setProperty('--cat-routine-bg', '#F0EDE5');
-      r.style.setProperty('--cat-hygiene-bg', '#F0EDE5');
-      r.style.setProperty('--cat-school-bg',  '#F0EDE5');
-      r.style.setProperty('--cat-social-bg',  '#F0EDE5');
-      r.style.setProperty('--cat-food-bg',    '#F0EDE5');
-      r.style.setProperty('--cat-calm-bg',    '#F0EDE5');
-      r.style.setProperty('--cat-routine', '#5A6058');
-      r.style.setProperty('--cat-hygiene', '#5A6058');
-      r.style.setProperty('--cat-school',  '#5A6058');
-      r.style.setProperty('--cat-social',  '#5A6058');
-      r.style.setProperty('--cat-food',    '#5A6058');
-      r.style.setProperty('--cat-calm',    '#5A6058');
+      const grey = '#F0EDE5', greyInk = '#5A6058';
+      ['routine','hygiene','school','social','food','calm'].forEach((c) => {
+        r.style.setProperty('--cat-' + c + '-bg', grey);
+        r.style.setProperty('--cat-' + c, greyInk);
+      });
     } else {
-      // Restore defaults
-      r.style.removeProperty('--cat-routine-bg');
-      r.style.removeProperty('--cat-hygiene-bg');
-      r.style.removeProperty('--cat-school-bg');
-      r.style.removeProperty('--cat-social-bg');
-      r.style.removeProperty('--cat-food-bg');
-      r.style.removeProperty('--cat-calm-bg');
-      r.style.removeProperty('--cat-routine');
-      r.style.removeProperty('--cat-hygiene');
-      r.style.removeProperty('--cat-school');
-      r.style.removeProperty('--cat-social');
-      r.style.removeProperty('--cat-food');
-      r.style.removeProperty('--cat-calm');
+      ['routine','hygiene','school','social','food','calm'].forEach((c) => {
+        r.style.removeProperty('--cat-' + c + '-bg');
+        r.style.removeProperty('--cat-' + c);
+      });
     }
-
     r.style.setProperty('--sage-deep', t.accent);
   }, [t.textScale, t.categoryColors, t.accent]);
 
-  // Inject density styles
   const densityStyle = {
     compact: { '--space': '12px' },
     regular: { '--space': '16px' },
     comfy:   { '--space': '22px' },
   }[t.density] || {};
 
-  // Child view hides chrome — just preview takes the whole viewport
-  const isChildMode = screen === 'preview' || screen === 'print';
+  // Focused-mode screens take over the viewport (no global nav, no sidebar)
+  const isFocused = route.name === 'preview' || route.name === 'print';
 
   return (
-    <div className={'app' + (isChildMode ? ' child-mode' : '')}
+    <div className={'app' + (isFocused ? ' child-mode' : '')}
          data-screen-label={({
            home: '01 Home',
            templates: '02 Templates',
-           builder: '03 Builder',
-           preview: '04 Child View',
-           library: '05 My Boards',
+           library: '03 My Boards',
+           builder: '04 Builder',
+           preview: '05 Child View',
            print: '06 Print Preview',
-         })[screen]}
+           import: '07 Import',
+         })[route.name]}
          style={densityStyle}>
-      {!isChildMode && <Sidebar active={screen} onNav={setScreen} />}
 
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-        {screen === 'home'      && <HomeScreen      onNav={setScreen} tweaks={t} />}
-        {screen === 'templates' && <TemplatesScreen onNav={setScreen} tweaks={t} />}
-        {screen === 'builder'   && <BuilderScreen   onNav={setScreen} tweaks={t} />}
-        {screen === 'preview'   && <PreviewScreen   onNav={setScreen} tweaks={t} />}
-        {screen === 'library'   && <LibraryScreen   onNav={setScreen} tweaks={t} />}
-        {screen === 'print'     && <PrintScreen     onNav={setScreen} tweaks={t} />}
+      <TopNav route={route} navigate={navigate} scope={store} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flex: 1 }}>
+        {route.name === 'home'      && <HomeScreen route={route} navigate={navigate} />}
+        {route.name === 'templates' && <TemplatesScreen route={route} navigate={navigate} />}
+        {route.name === 'library'   && <LibraryScreen route={route} navigate={navigate} />}
+        {route.name === 'builder'   && <BuilderScreen route={route} navigate={navigate} tweaks={t} />}
+        {route.name === 'preview'   && <PreviewScreen route={route} navigate={navigate} tweaks={t} />}
+        {route.name === 'print'     && <PrintScreen route={route} navigate={navigate} tweaks={t} />}
+        {route.name === 'import'    && <ImportScreen route={route} navigate={navigate} />}
       </div>
 
       <TweaksPanel title="Daybook tweaks">
@@ -101,24 +86,15 @@ function App() {
                     options={['#3D4A3D', '#3F5664', '#564A6B', '#1F2A2E']}
                     onChange={(v) => setTweak('accent', v)} />
 
-        <TweakSection label="Navigate" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-          {[
-            ['home', 'Home'], ['templates', 'Templates'],
-            ['builder', 'Builder'], ['library', 'My Boards'],
-            ['preview', 'Child View'], ['print', 'Print'],
-          ].map(([id, label]) => (
-            <button key={id} type="button"
-                    onClick={() => setScreen(id)}
-                    style={{
-                      appearance: 'none', border: 0,
-                      height: 26, padding: '0 8px', borderRadius: 7, cursor: 'pointer',
-                      background: screen === id ? 'rgba(0,0,0,.78)' : 'rgba(0,0,0,.06)',
-                      color: screen === id ? '#fff' : 'inherit',
-                      fontFamily: 'inherit', fontSize: 11.5, fontWeight: 500,
-                    }}>{label}</button>
-          ))}
-        </div>
+        <TweakSection label="Data" />
+        <TweakButton label="Reset everything to demo"
+                     secondary
+                     onClick={() => {
+                       if (confirm('Reset all boards and progress to the starter demo? This can\'t be undone.')) {
+                         store.resetAll();
+                         navigate('/');
+                       }
+                     }} />
       </TweaksPanel>
 
       <StandaloneTweaksButton />
@@ -126,14 +102,10 @@ function App() {
   );
 }
 
-// When running outside the design tool (e.g. on GitHub Pages), there's no
-// toolbar toggle to open the Tweaks panel. This floating button fills that
-// gap by posting __activate_edit_mode at the panel's own window.message
-// listener. We hide ourselves whenever the panel is open (mirroring
-// __activate / __deactivate) so the button doesn't double up.
+// Floating "Customize" button — shown only when running outside the design
+// tool (i.e. on GitHub Pages), so the user still has a way to open Tweaks.
 function StandaloneTweaksButton() {
   const [open, setOpen] = React.useState(false);
-  // Hide entirely inside the design tool — its own toolbar provides the toggle.
   const insideHost = typeof window !== 'undefined' && window.parent !== window;
 
   React.useEffect(() => {
@@ -164,6 +136,14 @@ function StandaloneTweaksButton() {
       <IconSparkle style={{ width: 16, height: 16 }} />
       Customize
     </button>
+  );
+}
+
+function App() {
+  return (
+    <StoreProvider>
+      <AppInner />
+    </StoreProvider>
   );
 }
 

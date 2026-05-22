@@ -1,95 +1,9 @@
-// components.jsx — shared layout pieces
-
-// Sidebar -----------------------------------------------------------------
-function Sidebar({ active, onNav }) {
-  const item = (id, icon, label) => (
-    <button type="button" className={'nav-item' + (active === id ? ' nav-item--active' : '')}
-            onClick={() => onNav(id)}>
-      {icon} <span>{label}</span>
-    </button>
-  );
-  return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-mark"><IconBrand style={{ width: 18, height: 18 }} /></div>
-        <div className="brand-name">Daybook</div>
-      </div>
-
-      <nav className="nav">
-        {item('home',      <IconHome />,      'Home')}
-        {item('templates', <IconTemplates />, 'Templates')}
-        {item('library',   <IconLibrary />,   'My Boards')}
-      </nav>
-
-      <div>
-        <div className="nav-section">Family</div>
-        <nav className="nav">
-          <button className="nav-item" type="button">
-            <span style={{
-              width: 18, height: 18, borderRadius: 6,
-              background: 'var(--cat-routine-bg)', color: 'var(--cat-routine)',
-              display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700,
-            }}>S</span>
-            Sam, 7
-          </button>
-          <button className="nav-item" type="button">
-            <span style={{
-              width: 18, height: 18, borderRadius: 6,
-              background: 'var(--cat-social-bg)', color: 'var(--cat-social)',
-              display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700,
-            }}>R</span>
-            Riley, 4
-          </button>
-          <button className="nav-item" type="button">
-            <IconPlus /> Add a child
-          </button>
-        </nav>
-      </div>
-
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <button className="nav-item" type="button"><IconShared /> Shared with me</button>
-        <button className="nav-item" type="button"><IconSettings /> Settings</button>
-        <button className="nav-item" type="button"><IconHelp /> Help</button>
-
-        <div style={{
-          marginTop: 12, padding: '10px 12px', borderRadius: 12,
-          background: 'var(--paper)', border: '1px solid var(--hairline)',
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%',
-            background: 'var(--cat-social-bg)', color: 'var(--cat-social)',
-            display: 'grid', placeItems: 'center',
-            fontWeight: 700, fontSize: 13,
-          }}>M</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Maya Cohen</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>Parent · Free plan</div>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-// Topbar — used by content screens (Home, Templates, Library)
-function Topbar({ title, subtitle, actions }) {
-  return (
-    <header className="topbar">
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="h1">{title}</div>
-        {subtitle && <div className="meta">{subtitle}</div>}
-      </div>
-      <div className="spacer" />
-      {actions}
-    </header>
-  );
-}
+// components.jsx — shared layout pieces (Sidebar/Topbar removed in favor of top-nav.jsx)
 
 // Page container with consistent padding + max width
 function Page({ children, pad = 28, maxW = 1240 }) {
   return (
-    <div className="scroll" style={{
+    <div className="scroll page-pad" style={{
       flex: 1, padding: `28px ${pad}px 48px`,
       overflow: 'auto',
     }}>
@@ -222,5 +136,5 @@ function Progress({ value, total, color = 'var(--sage)' }) {
 }
 
 Object.assign(window, {
-  Sidebar, Topbar, Page, CategoryPill, StepCard, TemplateCard, AvatarStack, Progress,
+  Page, CategoryPill, StepCard, TemplateCard, AvatarStack, Progress,
 });
