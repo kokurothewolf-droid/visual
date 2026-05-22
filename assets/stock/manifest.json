@@ -1,0 +1,9 @@
+{
+  "_README": "Drop image files into this assets/stock/ folder, then list them here. Each entry needs at minimum: file, title. Optional: category (one of routine|hygiene|school|social|food|calm), tags (array of search-matchable words), credit. Daybook will display them in the Stock tab of the image picker. After editing this file, redeploy — GitHub Pages serves it as a static file.",
+  "photos": [
+    { "file": "example-cereal.jpg",     "title": "Bowl of cereal",     "category": "food",    "tags": ["breakfast", "cereal", "milk"] },
+    { "file": "example-toothbrush.jpg", "title": "Kids toothbrush",    "category": "hygiene", "tags": ["brush", "teeth", "morning"] },
+    { "file": "example-backpack.jpg",   "title": "Backpack",           "category": "school",  "tags": ["school", "bag", "books"] },
+    { "file": "example-sneakers.jpg",   "title": "Velcro sneakers",    "category": "routine", "tags": ["shoes", "dress"] }
+  ]
+}

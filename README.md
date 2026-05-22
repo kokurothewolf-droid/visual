@@ -87,6 +87,19 @@ php -S localhost:8080
 
 Then open <http://localhost:8080/>.
 
+## Adding stock photos
+
+Daybook's **Stock** tab is driven by a manifest at `assets/stock/manifest.json`.
+
+1. Drop image files into `assets/stock/` (JPG or PNG, ~800×800 is plenty).
+2. Add an entry per image in `manifest.json`:
+   ```json
+   { "file": "kids-cereal.jpg", "title": "Cereal", "category": "food", "tags": ["breakfast", "milk"] }
+   ```
+3. Commit + push. GitHub Pages serves the manifest, the Stock tab fetches it, and the photos show up automatically.
+
+See `assets/stock/README.md` for the full field reference.
+
 ## Notes for adapting
 
 - **Image search** finds real, freely-licensed images from **Wikimedia Commons** — works out of the box on GitHub Pages (CORS-friendly, no API key, no proxy). License and source are attached to each picked image and shown in the inspector.

@@ -109,10 +109,14 @@
     .grid-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
     .grid-cards--lg { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .grid-tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-    /* Step canvas — 4 cols at desktop, scales down naturally. */
-    .grid-steps { display: grid; gap: 14px; grid-template-columns: repeat(4, 1fr); }
-    @media (max-width: 1080px) { .grid-steps { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 720px)  { .grid-steps { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+    /* Step canvas — 4 cols at desktop, scales down naturally.
+       `minmax(0, 1fr)` (not bare `1fr`) keeps every column equal regardless of
+       content: with `1fr` the implicit min is `min-content`, so a step whose
+       title has a long unbreakable word can force its column wider and
+       starve the others. */
+    .grid-steps { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch; }
+    @media (max-width: 1080px) { .grid-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 720px)  { .grid-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
 
     /* Builder workspace — 3 cols on desktop, single column with drawers
        on tablet/phone. The rails get pulled out of the grid and
@@ -229,10 +233,16 @@
     /* Image search results grid — 4 cols at desktop, scales down. */
     .grid-search-results {
       display: grid; gap: 12px;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
-    @media (max-width: 900px) { .grid-search-results { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 600px) { .grid-search-results { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+    @media (max-width: 900px) { .grid-search-results { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 600px) { .grid-search-results { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+
+    /* Image-picker tab bar — scrolls horizontally on phones rather than
+       wrapping, so the row stays readable. */
+    @media (max-width: 600px) {
+      .modal-tabs button { flex: 0 0 auto !important; min-width: 0 !important; padding: 10px 12px !important; }
+    }
 
     /* Reusable type --------------------------------------------------- */
     .eyebrow {
@@ -402,8 +412,14 @@
       position: relative;
     }
     .step-art svg { width: 56%; height: 56%; }
-    .step-meta { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
-    .step-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+    .step-meta { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; min-height: 64px; }
+    .step-title {
+      font-size: 16px; font-weight: 700; color: var(--ink);
+      /* Reserve room for a wrapped second line so every card's title
+         block is the same height — keeps the grid row uniform. */
+      min-height: 22px;
+      overflow-wrap: break-word; word-break: break-word;
+    }
     .step-sub { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
     .step-num {
       position: absolute; top: 8px; left: 10px;

@@ -74,8 +74,13 @@ function freshState() {
     progress: {
       'board_morning_demo': { doneStepIds: [], updatedAt: Date.now() },
     },
+    // User uploads — kept as data URLs so they persist offline. We cap the
+    // count (newest-first) to keep localStorage under the ~5MB browser limit.
+    uploads: [],
   };
 }
+
+const MAX_UPLOADS = 24;
 
 // ── Persistence ───────────────────────────────────────────────────────
 function loadState() {
@@ -91,6 +96,7 @@ function loadState() {
       currentChildId: parsed.currentChildId || parsed.children?.[0]?.id || 'child_sam',
       boards: parsed.boards || [],
       progress: parsed.progress || {},
+      uploads: parsed.uploads || [],
     };
   } catch (e) {
     console.warn('Daybook: failed to load state, resetting.', e);
@@ -257,6 +263,33 @@ function StoreProvider({ children }) {
       setState((s) => ({ ...s, boards: [copy, ...s.boards] }));
       return id;
     },
+
+    // ── Uploads ─────────────────────────────────────────────────────
+    // Store a data-URL upload so it can be picked as a step image. We
+    // newest-first cap the list to MAX_UPLOADS so a long photo library
+    // doesn't blow localStorage. Returns the stored upload record.
+    addUpload: (file, dataURL) => {
+      const upload = {
+        id: uid('up'),
+        title: (file.name || 'Photo').replace(/\.[^.]+$/, ''),
+        src: 'uploaded',
+        thumb: dataURL,
+        full: dataURL,
+        descriptionUrl: null,
+        license: 'Your photo',
+        artist: 'You',
+        w: 0, h: 0,
+        addedAt: Date.now(),
+      };
+      setState((s) => ({
+        ...s,
+        uploads: [upload, ...(s.uploads || [])].slice(0, MAX_UPLOADS),
+      }));
+      return upload;
+    },
+    removeUpload: (id) => setState((s) => ({
+      ...s, uploads: (s.uploads || []).filter((u) => u.id !== id),
+    })),
   }), [state]);
 
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;

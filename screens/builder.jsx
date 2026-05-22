@@ -346,7 +346,7 @@ function LibraryIconGrid({ onAdd }) {
 
 function LibraryPhotos({ onOpenSearch }) {
   return (
-    <div className="scroll" style={{ flex: 1, padding: '4px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="scroll" style={{ flex: 1, padding: '4px 14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <button type="button" onClick={() => onOpenSearch('')}
               style={{
                 width: '100%', textAlign: 'left',
@@ -364,35 +364,13 @@ function LibraryPhotos({ onOpenSearch }) {
           <IconSearch style={{ width: 18, height: 18 }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Search the web</div>
-          <div className="meta" style={{ fontSize: 11.5 }}>Free + reusable images.</div>
-        </div>
-        <IconArrowR style={{ width: 16, height: 16, color: 'var(--ink-3)' }} />
-      </button>
-      <button type="button" onClick={() => onOpenSearch('')}
-              style={{
-                width: '100%', textAlign: 'left',
-                padding: 12, borderRadius: 12, cursor: 'pointer',
-                background: 'var(--paper)',
-                border: '1px solid var(--hairline)',
-                display: 'flex', alignItems: 'center', gap: 12,
-                fontFamily: 'inherit',
-              }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: 'var(--sage-soft)', color: 'var(--sage-deep)',
-          display: 'grid', placeItems: 'center', flexShrink: 0,
-        }}>
-          <IconSparkle style={{ width: 18, height: 18 }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Generate with AI</div>
-          <div className="meta" style={{ fontSize: 11.5 }}>Make a custom picture.</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Open picture picker</div>
+          <div className="meta" style={{ fontSize: 11.5 }}>Search, upload, stock, or AI.</div>
         </div>
         <IconArrowR style={{ width: 16, height: 16, color: 'var(--ink-3)' }} />
       </button>
       <div className="meta" style={{ fontSize: 11.5, padding: '6px 4px' }}>
-        Select a step on the canvas first, then click <strong>Search the web</strong> here or in the inspector to pick a picture for it.
+        Select a step on the canvas first, then click <strong>Search or generate</strong> in the inspector or this button to attach a picture.
       </div>
     </div>
   );

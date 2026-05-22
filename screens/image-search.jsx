@@ -84,7 +84,7 @@ const SUGGESTED_AI = [
 
 // ── Component ───────────────────────────────────────────────────────
 function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
-  const [tab, setTab] = React.useState('search'); // 'search' | 'generate'
+  const [tab, setTab] = React.useState('search'); // search | upload | stock | generate
 
   React.useEffect(() => {
     if (!open) return;
@@ -126,7 +126,7 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
             <div className="stack-tight" style={{ flex: 1 }}>
               <div className="h3">Pick a picture for this step</div>
               <div className="meta" style={{ fontSize: 12 }}>
-                Find a real image, or generate something just right.
+                Search the web, upload your own, choose from your library, or generate.
               </div>
             </div>
             <button type="button" onClick={onClose}
@@ -135,19 +135,23 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div className="modal-tabs" style={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
             <TabButton on={tab === 'search'} onClick={() => setTab('search')}
-                       icon={<IconSearch />} label="Search the web"
-                       sub="Wikimedia Commons · free + licensed" />
+                       icon={<IconSearch />} label="Search" sub="Wikimedia" />
+            <TabButton on={tab === 'upload'} onClick={() => setTab('upload')}
+                       icon={<IconImage />} label="Upload" sub="Your photos" />
+            <TabButton on={tab === 'stock'} onClick={() => setTab('stock')}
+                       icon={<IconLibrary />} label="Stock" sub="Curated library" />
             <TabButton on={tab === 'generate'} onClick={() => setTab('generate')}
-                       icon={<IconSparkle />} label="Generate with AI"
-                       sub="Pollinations.ai · FLUX · free" />
+                       icon={<IconSparkle />} label="Generate" sub="AI · Pollinations" />
           </div>
         </div>
 
         {/* Body */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {tab === 'search'   && <SearchPane initialQuery={initialQuery} onSelect={onSelect} />}
+          {tab === 'upload'   && <UploadPane onSelect={onSelect} />}
+          {tab === 'stock'    && <StockPane initialQuery={initialQuery} onSelect={onSelect} />}
           {tab === 'generate' && <GeneratePane initialQuery={initialQuery} onSelect={onSelect} />}
         </div>
       </div>
@@ -159,8 +163,8 @@ function TabButton({ on, onClick, icon, label, sub }) {
   return (
     <button type="button" onClick={onClick}
             style={{
-              flex: 1,
-              border: 0, padding: '10px 14px',
+              flex: 1, minWidth: 100,
+              border: 0, padding: '10px 12px',
               borderTopLeftRadius: 10, borderTopRightRadius: 10,
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
               background: on ? 'var(--paper)' : 'transparent',
@@ -170,20 +174,384 @@ function TabButton({ on, onClick, icon, label, sub }) {
               transition: 'background .12s',
             }}>
       <div style={{
-        width: 32, height: 32, borderRadius: 9,
+        width: 30, height: 30, borderRadius: 8,
         background: on ? 'var(--sage-soft)' : 'var(--bg-tint)',
         color: on ? 'var(--sage-deep)' : 'var(--ink-2)',
         display: 'grid', placeItems: 'center', flexShrink: 0,
-      }}>{React.cloneElement(icon, { style: { width: 16, height: 16 } })}</div>
+      }}>{React.cloneElement(icon, { style: { width: 15, height: 15 } })}</div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{sub}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{sub}</div>
       </div>
     </button>
   );
 }
 
-// ── Pane 1: Wikimedia search ────────────────────────────────────────
+// ── Pane: Upload from device ────────────────────────────────────────
+function UploadPane({ onSelect }) {
+  const store = useStore();
+  const uploads = store.state.uploads || [];
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [dragOver, setDragOver] = React.useState(false);
+  const inputRef = React.useRef(null);
+
+  const handleFiles = async (files) => {
+    setError(null);
+    if (!files || !files.length) return;
+    setBusy(true);
+    let last = null;
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        // Resize-as-needed to keep localStorage small. We render the
+        // upload into a max 1024×1024 canvas, encoding as JPEG when the
+        // source is photographic so the data URL stays under ~250KB.
+        const dataURL = await fileToDataURL(file, { max: 1024 });
+        last = store.addUpload(file, dataURL);
+      }
+    } catch (e) {
+      setError(e.message || 'Couldn\'t read that file.');
+    } finally {
+      setBusy(false);
+    }
+    return last;
+  };
+
+  const onPick = async (e) => {
+    await handleFiles(e.target.files);
+    // Clear the input so picking the same file again still re-fires onChange
+    e.target.value = '';
+  };
+
+  const onDrop = async (e) => {
+    e.preventDefault(); setDragOver(false);
+    await handleFiles(e.dataTransfer.files);
+  };
+
+  return (
+    <>
+      <div style={{ padding: '14px 22px 12px' }}>
+        <div
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          style={{
+            border: '2px dashed ' + (dragOver ? 'var(--sage)' : 'var(--hairline-strong)'),
+            background: dragOver ? 'var(--sage-tint)' : 'var(--bg-tint)',
+            borderRadius: 14, padding: '24px 18px',
+            display: 'flex', alignItems: 'center', gap: 16,
+            cursor: 'pointer', transition: 'background .12s, border-color .12s',
+          }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 12,
+            background: 'var(--sage-soft)', color: 'var(--sage-deep)',
+            display: 'grid', placeItems: 'center', flexShrink: 0,
+          }}>
+            <IconImage style={{ width: 22, height: 22 }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="h3" style={{ marginBottom: 2 }}>
+              {busy ? 'Reading photo…' : 'Upload your own photo'}
+            </div>
+            <div className="meta" style={{ fontSize: 12.5 }}>
+              Drag &amp; drop, or click to choose. Photos are saved on this device only.
+            </div>
+            {error && (
+              <div style={{ fontSize: 12, color: 'var(--cat-food)', marginTop: 6 }}>{error}</div>
+            )}
+          </div>
+          <button type="button" className="btn btn--primary"
+                  onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>
+            <IconPlus />Choose file
+          </button>
+          <input ref={inputRef} type="file" accept="image/*" multiple hidden
+                 onChange={onPick} />
+        </div>
+      </div>
+
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: '6px 22px 18px' }}>
+        {uploads.length === 0 ? (
+          <ResultsEmpty
+            icon={<IconImage style={{ width: 28, height: 28 }} />}
+            title="No uploads yet"
+            body="Photos you upload show up here. They stay on this device — share a board's link to send the pictures to someone else." />
+        ) : (
+          <>
+            <div className="meta" style={{ fontSize: 12, marginBottom: 12, color: 'var(--ink-2)' }}>
+              <strong style={{ color: 'var(--ink)' }}>{uploads.length}</strong> photo{uploads.length === 1 ? '' : 's'} on this device
+            </div>
+            <div className="grid-search-results">
+              {uploads.map((u) => (
+                <UploadTile key={u.id} upload={u}
+                            onSelect={() => onSelect(u)}
+                            onRemove={() => store.removeUpload(u.id)} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <Footer
+        badge="Your photos"
+        text="Real pictures of your bowl, your bus, your front door — usually the best match for what your child sees." />
+    </>
+  );
+}
+
+function UploadTile({ upload, onSelect, onRemove }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <button type="button" onClick={onSelect}
+              style={{
+                appearance: 'none', border: 0, background: 'transparent',
+                cursor: 'pointer', padding: 0, textAlign: 'left',
+                display: 'flex', flexDirection: 'column', gap: 6,
+                fontFamily: 'inherit', width: '100%',
+              }}>
+        <div style={{
+          aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden',
+          background: '#1f1f1f', boxShadow: '0 0 0 1px var(--hairline)',
+        }}>
+          <img src={upload.thumb} alt={upload.title}
+               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        </div>
+        <div style={{
+          fontSize: 12, color: 'var(--ink)', fontWeight: 500,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{upload.title}</div>
+      </button>
+      <button type="button"
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              aria-label="Remove this photo"
+              style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 26, height: 26, borderRadius: '50%',
+                border: 0, cursor: 'pointer', fontFamily: 'inherit',
+                background: 'rgba(20,18,14,.75)', color: '#fff',
+                display: 'grid', placeItems: 'center',
+                backdropFilter: 'blur(4px)',
+              }}>
+        <IconTrash style={{ width: 12, height: 12 }} />
+      </button>
+    </div>
+  );
+}
+
+// Read a File into a data URL, downscaling oversized images so we don't
+// blow localStorage. Returns a JPEG when the source was JPEG (smaller),
+// PNG otherwise (preserves transparency).
+async function fileToDataURL(file, { max = 1024 } = {}) {
+  const reader = new FileReader();
+  const raw = await new Promise((res, rej) => {
+    reader.onload = () => res(reader.result);
+    reader.onerror = () => rej(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+  // Decode to check dimensions
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('Not a valid image'));
+    i.src = raw;
+  });
+  // No downscale needed
+  if (img.width <= max && img.height <= max && raw.length < 500_000) return raw;
+  const scale = Math.min(max / img.width, max / img.height, 1);
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  return canvas.toDataURL(mime, mime === 'image/jpeg' ? 0.88 : undefined);
+}
+
+// ── Pane: Stock photo library ──────────────────────────────────────
+function StockPane({ initialQuery, onSelect }) {
+  const [manifest, setManifest] = React.useState(null);
+  const [status, setStatus] = React.useState('loading'); // loading | done | empty | error
+  const [error, setError] = React.useState(null);
+  const [q, setQ] = React.useState(initialQuery || '');
+  const [cat, setCat] = React.useState('all');
+
+  // Fetch the manifest once when the pane mounts.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('assets/stock/manifest.json?t=' + Date.now());
+        if (!res.ok) throw new Error('Manifest not found');
+        const data = await res.json();
+        if (cancelled) return;
+        const list = Array.isArray(data.photos) ? data.photos : [];
+        setManifest(list);
+        setStatus(list.length ? 'done' : 'empty');
+      } catch (e) {
+        if (cancelled) return;
+        setError(e.message || 'Couldn\'t load stock library.');
+        setStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Filter
+  const filtered = React.useMemo(() => {
+    if (!manifest) return [];
+    const query = q.trim().toLowerCase();
+    return manifest.filter((p) => {
+      if (cat !== 'all' && p.category !== cat) return false;
+      if (!query) return true;
+      const hay = [p.title, p.category, ...(p.tags || [])].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(query);
+    });
+  }, [manifest, q, cat]);
+
+  // Build the category filter chips from whatever categories actually
+  // appear in the manifest — no point showing "Mealtime" if there's no
+  // food photo to pick from.
+  const usedCategories = React.useMemo(() => {
+    if (!manifest) return [];
+    const set = new Set();
+    for (const p of manifest) if (p.category) set.add(p.category);
+    return Object.values(CATEGORIES).filter((c) => set.has(c.id));
+  }, [manifest]);
+
+  return (
+    <>
+      <div style={{ padding: '14px 22px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <SearchField value={q} onChange={setQ}
+                     placeholder="Search the stock library…" />
+        {usedCategories.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button"
+                    className={'chip' + (cat === 'all' ? ' chip--active' : '')}
+                    onClick={() => setCat('all')}
+                    style={{ height: 26, fontSize: 12 }}>All</button>
+            {usedCategories.map((c) => {
+              const on = cat === c.id;
+              return (
+                <button key={c.id} type="button" onClick={() => setCat(c.id)}
+                        className={'chip' + (on ? ' chip--active' : '')}
+                        style={!on ? { background: c.bg, color: c.ink, boxShadow: 'none', height: 26, fontSize: 12 }
+                                   : { height: 26, fontSize: 12 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: on ? '#fff' : c.dot }} />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: '6px 22px 18px' }}>
+        {status === 'loading' && <ResultsSkeleton label="Loading stock library…" />}
+        {status === 'error' && (
+          <ResultsEmpty
+            icon={<IconClose style={{ width: 28, height: 28 }} />}
+            title="Couldn't load the stock library"
+            body={error || 'Make sure assets/stock/manifest.json exists and is valid JSON.'} />
+        )}
+        {status === 'empty' && (
+          <ResultsEmpty
+            icon={<IconLibrary style={{ width: 28, height: 28 }} />}
+            title="No stock photos yet"
+            body="Drop image files in assets/stock/ and add them to manifest.json — they'll show up here automatically." />
+        )}
+        {status === 'done' && filtered.length === 0 && (
+          <ResultsEmpty
+            icon={<IconSearch style={{ width: 28, height: 28 }} />}
+            title={q ? `No matches for "${q}"` : 'No photos in this category'}
+            body="Try a different search or clear the category filter." />
+        )}
+        {status === 'done' && filtered.length > 0 && (
+          <>
+            <div className="meta" style={{ fontSize: 12, marginBottom: 12, color: 'var(--ink-2)' }}>
+              <strong style={{ color: 'var(--ink)' }}>{filtered.length}</strong> photo{filtered.length === 1 ? '' : 's'}
+              {q ? <> matching "<strong style={{ color: 'var(--ink)' }}>{q}</strong>"</> : null}
+            </div>
+            <div className="grid-search-results">
+              {filtered.map((p, i) => (
+                <StockTile key={p.file || i} photo={p}
+                           onSelect={() => onSelect(stockToResult(p))} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <Footer
+        badge="Curated"
+        text="Curated stock photos served from this app. To add or update them, edit assets/stock/." />
+    </>
+  );
+}
+
+// Build the result object the rest of the app expects from a manifest entry.
+function stockToResult(p) {
+  const url = 'assets/stock/' + p.file;
+  return {
+    id: 'stock-' + (p.file || p.title),
+    title: p.title || p.file,
+    src: 'stock library',
+    thumb: url, full: url,
+    descriptionUrl: null,
+    license: p.credit || 'Curated',
+    artist: p.credit || '',
+    w: 0, h: 0,
+  };
+}
+
+function StockTile({ photo, onSelect }) {
+  const [errored, setErrored] = React.useState(false);
+  const url = 'assets/stock/' + photo.file;
+  const cat = CATEGORIES[photo.category];
+  return (
+    <button type="button" onClick={onSelect}
+            style={{
+              appearance: 'none', border: 0, background: 'transparent',
+              cursor: 'pointer', padding: 0, textAlign: 'left',
+              display: 'flex', flexDirection: 'column', gap: 6,
+              fontFamily: 'inherit',
+            }}>
+      <div style={{
+        aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', position: 'relative',
+        background: cat ? cat.bg : 'var(--bg-tint)',
+        boxShadow: '0 0 0 1px var(--hairline)',
+      }}>
+        {errored ? (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+            padding: 12, textAlign: 'center', color: 'var(--ink-3)',
+            fontSize: 11.5, fontWeight: 700, lineHeight: 1.3,
+          }}>
+            Missing file<br />
+            <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .8 }}>{photo.file}</span>
+          </div>
+        ) : (
+          <img src={url} alt={photo.title} loading="lazy"
+               onError={() => setErrored(true)}
+               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        )}
+      </div>
+      <div style={{
+        fontSize: 12.5, color: 'var(--ink)', fontWeight: 500, lineHeight: 1.3,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{photo.title}</div>
+      {cat && (
+        <div style={{
+          fontSize: 10.5, fontWeight: 700, color: cat.ink, letterSpacing: '.04em',
+          textTransform: 'uppercase',
+        }}>{cat.label}</div>
+      )}
+    </button>
+  );
+}
+
+// ── Pane: Wikimedia search ────────────────────────────────────────
 function SearchPane({ initialQuery, onSelect }) {
   const [q, setQ] = React.useState(initialQuery || '');
   const [results, setResults] = React.useState([]);
@@ -266,7 +634,7 @@ function SearchPane({ initialQuery, onSelect }) {
   );
 }
 
-// ── Pane 2: AI generation (Pollinations) ────────────────────────────
+// ── Pane: AI generation (Pollinations) ─────────────────────────────
 function GeneratePane({ initialQuery, onSelect }) {
   const [prompt, setPrompt] = React.useState(initialQuery || '');
   const [style, setStyle] = React.useState('illustration');

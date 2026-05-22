@@ -29,6 +29,9 @@ function CategoryPill({ id, size = 'sm' }) {
 function StepCard({ step, idx, selected, onSelect, showNumber = true, showTime = true, large = false }) {
   const cat = CATEGORIES[step.category] || CATEGORIES.routine;
   const hasPhoto = !!(step.photo && step.photo.thumb);
+  // Show a meta row only when there's something to show — otherwise we'd
+  // render a bare clock icon with no text, which looks broken.
+  const hasMeta = showTime && (step.time || step.duration);
   return (
     <div className={'step-card' + (selected ? ' step-card--selected' : '')}
          onClick={onSelect}
@@ -47,12 +50,18 @@ function StepCard({ step, idx, selected, onSelect, showNumber = true, showTime =
       </div>
       <div className="step-meta">
         <div className="step-title" style={{ fontSize: large ? 18 : 16 }}>{step.title}</div>
-        {showTime && (
+        {hasMeta ? (
           <div className="step-sub">
-            <IconClock style={{ width: 14, height: 14, opacity: .6 }} />
-            <span>{step.time}</span>
-            <span style={{ color: 'var(--ink-mute)' }}>·</span>
-            <span>{step.duration} min</span>
+            <IconClock style={{ width: 14, height: 14, opacity: .6, flexShrink: 0 }} />
+            {step.time && <span>{step.time}</span>}
+            {step.time && step.duration ? (
+              <span style={{ color: 'var(--ink-mute)' }}>·</span>
+            ) : null}
+            {step.duration ? <span>{step.duration} min</span> : null}
+          </div>
+        ) : (
+          <div className="step-sub" style={{ color: 'var(--ink-mute)', fontStyle: 'italic' }}>
+            No time set
           </div>
         )}
       </div>
