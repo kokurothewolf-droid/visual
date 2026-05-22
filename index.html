@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daybook — Visual Story Builder</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      /* surface */
+      --bg:        #F2EEE6;
+      --bg-tint:   #ECE6DA;
+      --paper:    #FFFFFF;
+      --hairline:  #E5DECE;
+      --hairline-strong: #D8CFBB;
+
+      /* ink */
+      --ink:       #2A2E2A;
+      --ink-2:     #5A6058;
+      --ink-3:     #8A8E83;
+      --ink-mute:  #B1B3A8;
+
+      /* sage — primary */
+      --sage:      #6F926F;
+      --sage-deep: #3D4A3D;
+      --sage-soft: #E4ECDE;
+      --sage-tint: #F0F4EB;
+
+      /* category — gentle WCAG-safe */
+      --cat-routine:    #6F926F;  --cat-routine-bg:   #E4ECDE;
+      --cat-hygiene:    #7B9DB3;  --cat-hygiene-bg:   #E2EBF1;
+      --cat-school:     #B68A56;  --cat-school-bg:    #F0E4D1;
+      --cat-social:     #9783B0;  --cat-social-bg:    #E8E0F0;
+      --cat-food:       #B97A6F;  --cat-food-bg:      #F0DDD9;
+      --cat-calm:       #8B8B7E;  --cat-calm-bg:      #E8E5DC;
+
+      /* radii / shadows */
+      --r-xs: 6px;
+      --r-sm: 10px;
+      --r-md: 14px;
+      --r-lg: 20px;
+      --r-xl: 28px;
+
+      --shadow-card: 0 1px 0 rgba(122,108,80,.04), 0 1px 3px rgba(48,40,20,.04);
+      --shadow-pop:  0 1px 0 rgba(122,108,80,.04), 0 8px 28px rgba(48,40,20,.10);
+
+      --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+      --space: 16px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      color: var(--ink);
+      background: var(--bg);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button { font-family: inherit; }
+    input, textarea, select { font-family: inherit; color: inherit; }
+
+    /* App shell -------------------------------------------------------- */
+    .app {
+      display: grid;
+      grid-template-columns: 232px 1fr;
+      min-height: 100vh;
+      min-width: 1280px;
+    }
+    .app.child-mode { grid-template-columns: 1fr; min-width: 0; }
+
+    /* Reusable type --------------------------------------------------- */
+    .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .display { font-size: 32px; font-weight: 700; line-height: 1.15; letter-spacing: -.01em; color: var(--ink); }
+    .h1 { font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -.005em; color: var(--ink); margin: 0; }
+    .h2 { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--ink); margin: 0; }
+    .h3 { font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--ink); margin: 0; }
+    .meta { font-size: 13px; color: var(--ink-2); }
+    .muted { color: var(--ink-3); }
+
+    /* Buttons --------------------------------------------------------- */
+    .btn {
+      appearance: none; border: 0; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 14px; border-radius: 999px;
+      font: inherit; font-weight: 700; font-size: 14px;
+      transition: background .12s, transform .08s, box-shadow .12s, color .12s;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn--primary { background: var(--sage-deep); color: #fff; }
+    .btn--primary:hover { background: #2F392F; }
+    .btn--ghost { background: transparent; color: var(--ink); }
+    .btn--ghost:hover { background: rgba(0,0,0,.04); }
+    .btn--soft { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 1px var(--hairline); }
+    .btn--soft:hover { background: #fbf9f4; box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+    .btn--sage { background: var(--sage-soft); color: var(--sage-deep); }
+    .btn--sage:hover { background: #D8E3D2; }
+    .btn--icon { width: 36px; padding: 0; justify-content: center; }
+    .btn--lg { height: 44px; padding: 0 18px; font-size: 15px; }
+    .btn--xl { height: 56px; padding: 0 28px; font-size: 17px; border-radius: 999px; }
+
+    .btn svg { width: 16px; height: 16px; }
+    .btn--lg svg { width: 18px; height: 18px; }
+    .btn--xl svg { width: 22px; height: 22px; }
+
+    /* Cards ----------------------------------------------------------- */
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-card);
+    }
+
+    /* Chips ----------------------------------------------------------- */
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 28px; padding: 0 12px;
+      border-radius: 999px;
+      background: var(--paper);
+      box-shadow: inset 0 0 0 1px var(--hairline);
+      font-size: 13px; font-weight: 700; color: var(--ink-2);
+      cursor: pointer;
+      transition: background .12s, color .12s, box-shadow .12s;
+    }
+    .chip--active { background: var(--sage-deep); color: #fff; box-shadow: none; }
+    .chip--cat { background: var(--cat-bg, var(--sage-tint)); color: var(--cat-ink, var(--sage-deep)); box-shadow: none; }
+
+    /* Inputs ---------------------------------------------------------- */
+    .input {
+      appearance: none; width: 100%; height: 38px; padding: 0 12px;
+      border: 1px solid var(--hairline); border-radius: var(--r-sm);
+      background: var(--paper); font: inherit; color: var(--ink);
+      outline: none;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    .input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(111,146,111,.18); }
+    .textarea { min-height: 90px; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+
+    /* Sidebar --------------------------------------------------------- */
+    .sidebar {
+      background: var(--bg-tint);
+      border-right: 1px solid var(--hairline);
+      padding: 22px 16px;
+      display: flex; flex-direction: column; gap: 18px;
+      position: sticky; top: 0; height: 100vh;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+    .brand-mark {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--sage-deep);
+      display: grid; place-items: center; color: #fff;
+    }
+    .brand-name { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+
+    .nav { display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 9px;
+      color: var(--ink-2); font-size: 14px; font-weight: 700;
+      cursor: pointer; border: 0; background: transparent;
+      width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: rgba(0,0,0,.04); color: var(--ink); }
+    .nav-item--active { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-card); }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    .nav-section {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--ink-3);
+      padding: 8px 10px 4px;
+    }
+
+    /* Topbar ---------------------------------------------------------- */
+    .topbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--hairline);
+      background: rgba(242,238,230,.85);
+      backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar .spacer { flex: 1; }
+    .topbar .btn { flex-shrink: 0; }
+    .topbar .h1, .topbar .h2 { white-space: nowrap; }
+
+    /* Scrollers ------------------------------------------------------- */
+    .scroll { overflow-y: auto; }
+    .scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+    .scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.10); border-radius: 999px; border: 2px solid var(--bg); background-clip: content-box; }
+    .scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.18); border: 2px solid var(--bg); background-clip: content-box; }
+
+    /* Drag handle indicator ------------------------------------------ */
+    .drag-grip {
+      display: grid; grid-template-columns: 2px 2px; gap: 2px;
+      width: 10px;
+    }
+    .drag-grip i { width: 2px; height: 2px; border-radius: 50%; background: var(--ink-mute); display: block; }
+    .drag-grip i:nth-child(n) { height: 2px; }
+
+    /* Pill / status --------------------------------------------------- */
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px; border-radius: 999px;
+      background: var(--sage-soft); color: var(--sage-deep);
+      font-size: 12px; font-weight: 700;
+    }
+    .pill--ghost { background: rgba(0,0,0,.04); color: var(--ink-2); }
+    .pill--dot::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Activity card (the step in a board) ---------------------------- */
+    .step-card {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: border-color .12s, box-shadow .12s, transform .08s;
+      cursor: pointer;
+    }
+    .step-card:hover { border-color: var(--hairline-strong); box-shadow: var(--shadow-pop); }
+    .step-card--selected {
+      border-color: var(--sage);
+      box-shadow: 0 0 0 3px rgba(111,146,111,.18), var(--shadow-card);
+    }
+    .step-art {
+      aspect-ratio: 4 / 3;
+      background: var(--cat-bg, var(--sage-soft));
+      color: var(--cat-ink, var(--sage-deep));
+      display: grid; place-items: center;
+      position: relative;
+    }
+    .step-art svg { width: 56%; height: 56%; }
+    .step-meta { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; }
+    .step-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+    .step-sub { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+    .step-num {
+      position: absolute; top: 8px; left: 10px;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(255,255,255,.85);
+      color: var(--cat-ink, var(--ink));
+      display: grid; place-items: center;
+      font-size: 12px; font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+
+    /* Utilities ------------------------------------------------------- */
+    .row { display: flex; align-items: center; gap: 10px; }
+    .col { display: flex; flex-direction: column; gap: 10px; }
+    .stack-tight { display: flex; flex-direction: column; gap: 4px; }
+    .grow { flex: 1; }
+    .hairline { height: 1px; background: var(--hairline); }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="icons.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="screens/home.jsx"></script>
+  <script type="text/babel" src="screens/templates.jsx"></script>
+  <script type="text/babel" src="screens/builder.jsx"></script>
+  <script type="text/babel" src="screens/preview.jsx"></script>
+  <script type="text/babel" src="screens/library.jsx"></script>
+  <script type="text/babel" src="screens/print.jsx"></script>
+  <script type="text/babel" src="screens/image-search.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
