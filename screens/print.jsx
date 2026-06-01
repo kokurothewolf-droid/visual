@@ -291,7 +291,7 @@ function PaperHeader() {
           <IconBrand style={{ width: 16, height: 16 }} />
         </div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Daybook</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>KindCue</div>
           <div style={{ fontSize: 10.5, color: '#8A8E83' }}>Visual schedules for families</div>
         </div>
       </div>
@@ -325,7 +325,7 @@ function PaperFooter({ child }) {
         )}
       </div>
       <div style={{ marginTop: 14, fontSize: 10, color: '#B1B3A8', textAlign: 'center' }}>
-        Generated with Daybook — visual schedules &amp; stories for neurodiverse families.
+        Generated with KindCue — visual schedules &amp; stories for neurodiverse families.
       </div>
     </div>
   );

@@ -820,7 +820,7 @@ function BuilderInspector({ board, step, idx, total, onChange, onClose,
           </div>
           <textarea className="input textarea" value={step.note || ''}
                     onChange={(e) => onChange({ note: e.target.value })} />
-          <div className="meta" style={{ fontSize: 11 }}>What Daybook will say in the child view.</div>
+          <div className="meta" style={{ fontSize: 11 }}>What KindCue will say in the child view.</div>
         </div>
 
         {/* Category */}

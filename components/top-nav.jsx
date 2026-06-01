@@ -13,6 +13,7 @@ function TopNav({ route, navigate, scope }) {
   const item = (target, label) => {
     const active = (target === '/' && route.name === 'home')
       || (target === '/templates' && route.name === 'templates')
+      || (target === '/about' && route.name === 'about')
       || (target === '/library' && (route.name === 'library' || route.name === 'builder'));
     return (
       <button type="button" onClick={() => navigate(target)}
@@ -57,7 +58,7 @@ function TopNav({ route, navigate, scope }) {
         </div>
         <div className="topnav-brand-name" style={{
           fontSize: 16, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--ink)',
-        }}>Daybook</div>
+        }}>KindCue</div>
       </button>
 
       <div className="topnav-sep" style={{ width: 1, height: 22, background: 'var(--hairline)' }} />
@@ -66,6 +67,7 @@ function TopNav({ route, navigate, scope }) {
         {item('/', 'Home')}
         {item('/templates', 'Templates')}
         {item('/library', 'My boards')}
+        {item('/about', 'About')}
       </nav>
 
       <div style={{ flex: 1 }} />
@@ -79,7 +81,38 @@ function ChildPicker({ scope }) {
   const { state, setCurrentChild, addChild } = scope;
   const [open, setOpen] = React.useState(false);
   const child = state.children.find((c) => c.id === state.currentChildId) || state.children[0];
-  if (!child) return null;
+
+  const addPrompt = () => {
+    const name = prompt('Name for this child?');
+    if (!name?.trim()) return;
+    const ageStr = prompt('Age? (optional)');
+    const age = parseInt(ageStr, 10) || null;
+    const colors = ['routine','hygiene','school','social','food','calm'];
+    const used = new Set(state.children.map((c) => c.color));
+    const color = colors.find((c) => !used.has(c)) || 'routine';
+    addChild({ name: name.trim(), age, color });
+    setOpen(false);
+  };
+
+  // Empty state — no children yet. Render a single "+ Add a child" button
+  // so the picker still has a presence in the nav and the user has an
+  // obvious entry point. Without this, the picker would vanish entirely.
+  if (!child) {
+    return (
+      <button type="button" onClick={addPrompt}
+              style={{
+                appearance: 'none', border: '1px dashed var(--hairline-strong)',
+                background: 'transparent', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 36, padding: '0 12px', borderRadius: 999,
+                fontFamily: 'inherit', color: 'var(--ink-2)',
+                fontSize: 13, fontWeight: 700,
+              }}>
+        <IconPlus style={{ width: 14, height: 14 }} />
+        Add a child
+      </button>
+    );
+  }
 
   const cat = CATEGORIES[child.color] || CATEGORIES.routine;
   return (
@@ -150,17 +183,7 @@ function ChildPicker({ scope }) {
             })}
             <div style={{ height: 1, background: 'var(--hairline)', margin: '6px 4px' }} />
             <button type="button"
-                    onClick={() => {
-                      const name = prompt('Name for this child?');
-                      if (!name?.trim()) return;
-                      const ageStr = prompt('Age?');
-                      const age = parseInt(ageStr, 10) || null;
-                      const colors = ['routine','hygiene','school','social','food','calm'];
-                      const used = new Set(state.children.map((c) => c.color));
-                      const color = colors.find((c) => !used.has(c)) || 'routine';
-                      addChild({ name: name.trim(), age, color });
-                      setOpen(false);
-                    }}
+                    onClick={addPrompt}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       width: '100%', padding: '8px 10px', borderRadius: 8,

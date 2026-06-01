@@ -1,9 +1,16 @@
 {
   "_README": "Drop image files into this assets/stock/ folder, then list them here. Each entry needs at minimum: file, title. Optional: category (one of routine|hygiene|school|social|food|calm), tags (array of search-matchable words), credit. Daybook will display them in the Stock tab of the image picker. After editing this file, redeploy — GitHub Pages serves it as a static file.",
   "photos": [
-    { "file": "example-cereal.jpg",     "title": "Bowl of cereal",     "category": "food",    "tags": ["breakfast", "cereal", "milk"] },
-    { "file": "example-toothbrush.jpg", "title": "Kids toothbrush",    "category": "hygiene", "tags": ["brush", "teeth", "morning"] },
-    { "file": "example-backpack.jpg",   "title": "Backpack",           "category": "school",  "tags": ["school", "bag", "books"] },
-    { "file": "example-sneakers.jpg",   "title": "Velcro sneakers",    "category": "routine", "tags": ["shoes", "dress"] }
+    { "file": "breakfast-boy.png",  "title": "Eating breakfast",   "category": "food",    "tags": ["breakfast", "cereal", "toast", "juice", "morning", "eat", "boy"] },
+    { "file": "breakfast-girl.png", "title": "Breakfast at the table", "category": "food", "tags": ["breakfast", "cereal", "toast", "juice", "morning", "eat", "girl"] },
+    { "file": "eating-lunch.png",   "title": "Eating a meal",      "category": "food",    "tags": ["lunch", "dinner", "sandwich", "apple", "eat", "meal", "table"] },
+    { "file": "brush-teeth.png",    "title": "Brushing teeth",     "category": "hygiene", "tags": ["brush", "teeth", "toothbrush", "morning", "night", "bathroom"] },
+    { "file": "wash-hands.png",     "title": "Washing hands",      "category": "hygiene", "tags": ["wash", "hands", "soap", "sink", "clean", "bathroom"] },
+    { "file": "shower.png",         "title": "Taking a shower",    "category": "hygiene", "tags": ["shower", "wash", "bath", "clean", "bathroom"] },
+    { "file": "swimming.png",       "title": "Swimming",           "category": "hygiene", "tags": ["swim", "swimming", "pool", "water", "exercise"] },
+    { "file": "get-dressed.png",    "title": "Getting dressed",    "category": "routine", "tags": ["dress", "clothes", "shirt", "get dressed", "morning"] },
+    { "file": "school-van.png",     "title": "School van",         "category": "school",  "tags": ["school", "van", "bus", "ride", "transport", "backpack"] },
+    { "file": "homework.png",       "title": "Doing homework",     "category": "school",  "tags": ["homework", "study", "write", "school", "desk", "book", "pencil"] },
+    { "file": "tablet-time.png",    "title": "Tablet time",        "category": "calm",    "tags": ["tablet", "ipad", "screen", "play", "game", "quiet"] }
   ]
 }

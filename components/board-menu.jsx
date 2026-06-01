@@ -42,38 +42,52 @@ function BoardMenu({ board, anchor, onClose, navigate }) {
                   }} />
         <MenuItem icon={<IconPrint />} label="Open print preview"
                   onClick={() => { onClose(); navigate('/b/' + board.id + '/print'); }} />
+        <MenuItem icon={<IconStar />} label={board.reward ? 'Edit reward goal' : 'Set a reward goal'}
+                  onClick={() => {
+                    const goalStr = prompt('How many steps to earn the reward?', String(board.reward?.goal || board.steps.length));
+                    if (goalStr === null) { onClose(); return; }
+                    const goal = Math.max(1, parseInt(goalStr, 10) || board.steps.length);
+                    const label = prompt('What\u2019s the reward? (e.g. "10 min tablet")', board.reward?.label || '');
+                    if (label === null) { onClose(); return; }
+                    store.updateBoard(board.id, { reward: label.trim() ? { goal, label: label.trim() } : null });
+                    onClose();
+                  }} />
 
         <div style={{ height: 1, background: 'var(--hairline)', margin: '6px 4px' }} />
 
-        <div style={{ padding: '6px 10px 4px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-          For
-        </div>
-        {store.state.children.map((c) => {
-          const cc = CATEGORIES[c.color] || CATEGORIES.routine;
-          const isCur = c.id === board.childId;
-          return (
-            <button key={c.id} type="button"
-                    onClick={() => { store.updateBoard(board.id, { childId: c.id }); onClose(); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '7px 10px', borderRadius: 8,
-                      border: 0, background: isCur ? 'var(--sage-soft)' : 'transparent',
-                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                      fontSize: 13,
-                    }}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                background: cc.bg, color: cc.ink,
-                display: 'grid', placeItems: 'center',
-                fontSize: 10.5, fontWeight: 700,
-              }}>{c.name[0]}</span>
-              <span style={{ flex: 1 }}>{c.name}</span>
-              {isCur && <IconCheck style={{ width: 13, height: 13, color: 'var(--sage-deep)' }} />}
-            </button>
-          );
-        })}
+        {store.state.children.length > 0 && (
+          <>
+            <div style={{ padding: '6px 10px 4px', fontSize: 10.5, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+              For
+            </div>
+            {store.state.children.map((c) => {
+              const cc = CATEGORIES[c.color] || CATEGORIES.routine;
+              const isCur = c.id === board.childId;
+              return (
+                <button key={c.id} type="button"
+                        onClick={() => { store.updateBoard(board.id, { childId: c.id }); onClose(); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          width: '100%', padding: '7px 10px', borderRadius: 8,
+                          border: 0, background: isCur ? 'var(--sage-soft)' : 'transparent',
+                          cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                          fontSize: 13,
+                        }}>
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: cc.bg, color: cc.ink,
+                    display: 'grid', placeItems: 'center',
+                    fontSize: 10.5, fontWeight: 700,
+                  }}>{c.name[0]}</span>
+                  <span style={{ flex: 1 }}>{c.name}</span>
+                  {isCur && <IconCheck style={{ width: 13, height: 13, color: 'var(--sage-deep)' }} />}
+                </button>
+              );
+            })}
 
-        <div style={{ height: 1, background: 'var(--hairline)', margin: '6px 4px' }} />
+            <div style={{ height: 1, background: 'var(--hairline)', margin: '6px 4px' }} />
+          </>
+        )}
 
         <MenuItem icon={<IconTrash />} label="Delete board"
                   danger

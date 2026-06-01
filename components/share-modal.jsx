@@ -14,6 +14,21 @@ function ShareModal({ open, board, onClose }) {
     if (open) setTimeout(() => inputRef.current?.select(), 60);
   }, [open]);
 
+  // QR code — encodes the same share URL so a parent can point a phone
+  // camera at it. Long boards make long URLs; QR capacity tops out, so we
+  // fail gracefully and just show the copy field in that case.
+  const qrDataUrl = React.useMemo(() => {
+    if (!open || !url || typeof window.qrcode !== 'function') return null;
+    try {
+      const qr = window.qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      return qr.createDataURL(5, 12);
+    } catch (e) {
+      return null; // too much data for a QR — copy link instead
+    }
+  }, [open, url]);
+
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -69,7 +84,7 @@ function ShareModal({ open, board, onClose }) {
           <div className="stack-tight" style={{ flex: 1 }}>
             <div className="h2">Share this board</div>
             <div className="meta" style={{ fontSize: 13 }}>
-              Anyone with the link can add a copy to their own Daybook.
+              Anyone with the link can add a copy to their own KindCue.
               No login needed. Edits don't sync.
             </div>
           </div>
@@ -101,6 +116,24 @@ function ShareModal({ open, board, onClose }) {
             </div>
           </div>
         </div>
+
+        {qrDataUrl && (
+          <div style={{ padding: '16px 24px 0' }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Scan with a phone</div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 16,
+              padding: 14, borderRadius: 14,
+              background: 'var(--bg-tint)', border: '1px solid var(--hairline)',
+            }}>
+              <img src={qrDataUrl} alt="QR code for this board"
+                   style={{ width: 116, height: 116, borderRadius: 8, background: '#fff', flexShrink: 0 }} />
+              <div className="meta" style={{ fontSize: 12.5 }}>
+                Point a camera at the code to open this board on another device —
+                handy for a teacher or therapist. No app or login needed.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ padding: '16px 24px 4px' }}>
           <div className="eyebrow" style={{ marginBottom: 6 }}>Share link</div>
