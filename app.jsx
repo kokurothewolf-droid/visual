@@ -49,6 +49,7 @@ function AppInner() {
          data-screen-label={({
            home: '01 Home',
            templates: '02 Templates',
+           about: '08 About',
            library: '03 My Boards',
            builder: '04 Builder',
            preview: '05 Child View',
@@ -62,6 +63,7 @@ function AppInner() {
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flex: 1 }}>
         {route.name === 'home'      && <HomeScreen route={route} navigate={navigate} />}
         {route.name === 'templates' && <TemplatesScreen route={route} navigate={navigate} />}
+        {route.name === 'about'     && <AboutScreen route={route} navigate={navigate} />}
         {route.name === 'library'   && <LibraryScreen route={route} navigate={navigate} />}
         {route.name === 'builder'   && <BuilderScreen route={route} navigate={navigate} tweaks={t} />}
         {route.name === 'preview'   && <PreviewScreen route={route} navigate={navigate} tweaks={t} />}
@@ -69,7 +71,7 @@ function AppInner() {
         {route.name === 'import'    && <ImportScreen route={route} navigate={navigate} />}
       </div>
 
-      <TweaksPanel title="Daybook tweaks">
+      <TweaksPanel title="KindCue tweaks">
         <TweakSection label="Reading & comfort" />
         <TweakSlider label="Text size" value={t.textScale} min={85} max={130} step={5} unit="%"
                      onChange={(v) => setTweak('textScale', v)} />

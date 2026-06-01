@@ -9,7 +9,10 @@
 // most-recent first.
 
 const STORAGE_KEY = 'daybook.v1';
-const STORE_VERSION = 1;
+// Bumped to 2 — the v1 seed shipped with two example children (Sam, Riley).
+// Bumping invalidates that cached state so returning users come back to a
+// clean slate matching the v2 seed.
+const STORE_VERSION = 2;
 
 function uid(prefix = 'id') {
   return prefix + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
@@ -18,16 +21,14 @@ function uid(prefix = 'id') {
 // ── Seeds ─────────────────────────────────────────────────────────────
 // First-run defaults — what a brand-new user sees.
 
-const SEED_CHILDREN = [
-  { id: 'child_sam',   name: 'Sam',   age: 7, color: 'routine' },
-  { id: 'child_riley', name: 'Riley', age: 4, color: 'social' },
-];
+// No seed children — users add their own from the top-nav child picker.
+const SEED_CHILDREN = [];
 
 function seedMorningRoutine() {
   return {
     id: 'board_morning_demo',
     title: 'Morning Routine',
-    childId: 'child_sam',
+    childId: null,
     category: 'routine',
     schedule: 'Weekdays · starts 7:00 AM',
     createdAt: Date.now() - 86400000 * 2,
@@ -49,7 +50,7 @@ function seedBedtime() {
   return {
     id: uid('board'),
     title: 'Bedtime Routine',
-    childId: 'child_sam',
+    childId: null,
     category: 'routine',
     schedule: 'Every night · starts 7:30 PM',
     createdAt: Date.now() - 86400000 * 5,
@@ -69,7 +70,7 @@ function freshState() {
   return {
     v: STORE_VERSION,
     children: SEED_CHILDREN,
-    currentChildId: 'child_sam',
+    currentChildId: null,
     boards: [seedMorningRoutine(), seedBedtime()],
     progress: {
       'board_morning_demo': { doneStepIds: [], updatedAt: Date.now() },
@@ -92,8 +93,8 @@ function loadState() {
     // Be a little forgiving with missing fields
     return {
       v: STORE_VERSION,
-      children: parsed.children?.length ? parsed.children : SEED_CHILDREN,
-      currentChildId: parsed.currentChildId || parsed.children?.[0]?.id || 'child_sam',
+      children: parsed.children || [],
+      currentChildId: parsed.currentChildId || parsed.children?.[0]?.id || null,
       boards: parsed.boards || [],
       progress: parsed.progress || {},
       uploads: parsed.uploads || [],
@@ -124,10 +125,15 @@ function StoreProvider({ children }) {
 
     // Children
     setCurrentChild: (id) => setState((s) => ({ ...s, currentChildId: id })),
-    addChild: (child) => setState((s) => ({
-      ...s,
-      children: [...s.children, { id: uid('child'), age: null, color: 'routine', ...child }],
-    })),
+    addChild: (child) => setState((s) => {
+      const newChild = { id: uid('child'), age: null, color: 'routine', ...child };
+      return {
+        ...s,
+        children: [...s.children, newChild],
+        // First child added becomes the current selection automatically.
+        currentChildId: s.currentChildId || newChild.id,
+      };
+    }),
 
     // Boards
     getBoard: (id) => state.boards.find((b) => b.id === id),
@@ -244,8 +250,15 @@ function StoreProvider({ children }) {
     }),
     resetProgress: (boardId) => setState((s) => ({
       ...s,
-      progress: { ...s.progress, [boardId]: { doneStepIds: [], updatedAt: Date.now() } },
+      progress: { ...s.progress, [boardId]: { doneStepIds: [], mood: null, updatedAt: Date.now() } },
     })),
+
+    // Mood check-in (child view). Stored alongside progress so a caregiver
+    // can see how the child arrived at the routine.
+    setMood: (boardId, mood) => setState((s) => {
+      const cur = s.progress[boardId] || { doneStepIds: [], updatedAt: 0 };
+      return { ...s, progress: { ...s.progress, [boardId]: { ...cur, mood, updatedAt: Date.now() } } };
+    }),
 
     // Whole-store
     resetAll: () => setState(freshState()),
@@ -309,6 +322,7 @@ function useStore() {
 function encodeBoardForShare(board) {
   const slim = {
     title: board.title, category: board.category, schedule: board.schedule,
+    reward: board.reward || undefined,
     steps: board.steps.map((s) => ({
       icon: s.icon, title: s.title, time: s.time, duration: s.duration,
       category: s.category, note: s.note, photo: s.photo || undefined,

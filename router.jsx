@@ -3,6 +3,7 @@
 // Routes:
 //   #/                      → Home
 //   #/templates             → Templates gallery
+//   #/about                 → About
 //   #/library               → My boards
 //   #/b/:boardId            → Builder
 //   #/b/:boardId/preview    → Child view
@@ -19,6 +20,7 @@ function parseHash() {
 
   if (segs.length === 0)                    return { name: 'home',      params: {},                  query, path };
   if (segs[0] === 'templates')               return { name: 'templates', params: {},                  query, path };
+  if (segs[0] === 'about')                   return { name: 'about',     params: {},                  query, path };
   if (segs[0] === 'library')                 return { name: 'library',   params: {},                  query, path };
   if (segs[0] === 'import')                  return { name: 'import',    params: {},                  query, path };
   if (segs[0] === 'b' && segs.length === 2)  return { name: 'builder',   params: { boardId: segs[1] }, query, path };
