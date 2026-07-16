@@ -1,0 +1,16 @@
+# Reference / scratch material — keep locally, don't publish
+uploads/
+scrap/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (if a build is added later)
+node_modules/
+dist/
+.cache/

@@ -5,7 +5,7 @@
 // Each screen still renders its own page-level header underneath this for
 // breadcrumb / actions, but global nav lives up here.
 
-function TopNav({ route, navigate, scope }) {
+function TopNav({ route, navigate, scope, onOpenAuth }) {
   // Hide the global nav inside focused-mode routes (Preview, Print) — they
   // own the whole viewport.
   if (['preview', 'print'].includes(route.name)) return null;
@@ -72,7 +72,10 @@ function TopNav({ route, navigate, scope }) {
 
       <div style={{ flex: 1 }} />
 
-      <ChildPicker scope={scope} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <ChildPicker scope={scope} />
+        <AccountMenu onOpenAuth={onOpenAuth} />
+      </div>
     </header>
   );
 }
@@ -203,4 +206,91 @@ function ChildPicker({ scope }) {
   );
 }
 
-Object.assign(window, { TopNav, ChildPicker });
+// Account control — "Sign in" when logged out, avatar + sync status when in.
+function AccountMenu({ onOpenAuth }) {
+  const { user, signOut } = useAuth();
+  const store = useStore();
+  const [open, setOpen] = React.useState(false);
+
+  if (!user) {
+    return (
+      <button type="button" onClick={onOpenAuth} className="btn btn--soft" style={{ height: 36 }}>
+        Sign in
+      </button>
+    );
+  }
+
+  const email = user.email || 'Account';
+  const initial = (email[0] || '?').toUpperCase();
+  const meta = ({
+    loading: { t: 'Loading your data…', c: 'var(--ink-3)' },
+    saving:  { t: 'Saving…',            c: 'var(--ink-3)' },
+    saved:   { t: 'All changes saved',  c: 'var(--sage)' },
+    error:   { t: 'Sync error',         c: 'var(--cat-food)' },
+    idle:    { t: 'Synced',             c: 'var(--ink-mute)' },
+  })[store.syncStatus] || { t: '', c: 'var(--ink-mute)' };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button type="button" onClick={() => setOpen((o) => !o)}
+              style={{
+                appearance: 'none', border: '1px solid var(--hairline)',
+                background: 'var(--paper)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 36, padding: '0 10px 0 6px', borderRadius: 999,
+                fontFamily: 'inherit', color: 'var(--ink)',
+              }}>
+        <span style={{
+          position: 'relative',
+          width: 26, height: 26, borderRadius: '50%',
+          background: 'var(--sage-deep)', color: '#fff',
+          display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700,
+        }}>
+          {initial}
+          <span style={{
+            position: 'absolute', right: -1, bottom: -1,
+            width: 9, height: 9, borderRadius: '50%',
+            background: meta.c, border: '2px solid var(--paper)',
+          }} />
+        </span>
+        <IconChevD style={{ width: 12, height: 12, color: 'var(--ink-3)' }} />
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 61,
+            minWidth: 236, background: 'var(--paper)',
+            border: '1px solid var(--hairline)', borderRadius: 12,
+            boxShadow: 'var(--shadow-pop)', padding: 6,
+          }}>
+            <div style={{ padding: '8px 10px 6px' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Signed in as</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', margin: '2px 0' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.c, flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>{meta.t}</span>
+            </div>
+            <div style={{ height: 1, background: 'var(--hairline)', margin: '6px 4px' }} />
+            <button type="button"
+                    onClick={async () => { setOpen(false); await signOut(); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      width: '100%', padding: '8px 10px', borderRadius: 8,
+                      border: 0, background: 'transparent', cursor: 'pointer',
+                      fontFamily: 'inherit', textAlign: 'left', fontSize: 13, fontWeight: 700, color: 'var(--ink-2)',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,.04)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { TopNav, ChildPicker, AccountMenu });

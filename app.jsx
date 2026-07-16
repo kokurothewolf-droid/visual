@@ -12,6 +12,7 @@ function AppInner() {
   const { route, navigate } = useRouter();
   const store = useStore();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [authOpen, setAuthOpen] = React.useState(false);
 
   // Apply tweaks ────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -58,7 +59,7 @@ function AppInner() {
          })[route.name]}
          style={densityStyle}>
 
-      <TopNav route={route} navigate={navigate} scope={store} />
+      <TopNav route={route} navigate={navigate} scope={store} onOpenAuth={() => setAuthOpen(true)} />
 
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flex: 1 }}>
         {route.name === 'home'      && <HomeScreen route={route} navigate={navigate} />}
@@ -98,6 +99,8 @@ function AppInner() {
                        }
                      }} />
       </TweaksPanel>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <StandaloneTweaksButton />
     </div>
@@ -143,9 +146,11 @@ function StandaloneTweaksButton() {
 
 function App() {
   return (
-    <StoreProvider>
-      <AppInner />
-    </StoreProvider>
+    <AuthProvider>
+      <StoreProvider>
+        <AppInner />
+      </StoreProvider>
+    </AuthProvider>
   );
 }
 

@@ -84,23 +84,28 @@ function freshState() {
 const MAX_UPLOADS = 24;
 
 // ── Persistence ───────────────────────────────────────────────────────
+// Be a little forgiving with missing fields — used for both the localStorage
+// cache and the cloud (Supabase) copy.
+function normalizeState(parsed) {
+  return {
+    v: STORE_VERSION,
+    children: parsed.children || [],
+    currentChildId: parsed.currentChildId || parsed.children?.[0]?.id || null,
+    boards: parsed.boards || [],
+    progress: parsed.progress || {},
+    uploads: parsed.uploads || [],
+  };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshState();
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.v !== STORE_VERSION) return freshState();
-    // Be a little forgiving with missing fields
-    return {
-      v: STORE_VERSION,
-      children: parsed.children || [],
-      currentChildId: parsed.currentChildId || parsed.children?.[0]?.id || null,
-      boards: parsed.boards || [],
-      progress: parsed.progress || {},
-      uploads: parsed.uploads || [],
-    };
+    return normalizeState(parsed);
   } catch (e) {
-    console.warn('Daybook: failed to load state, resetting.', e);
+    console.warn('KindCue: failed to load state, resetting.', e);
     return freshState();
   }
 }
@@ -114,14 +119,88 @@ function saveState(state) {
 const StoreContext = React.createContext(null);
 
 function StoreProvider({ children }) {
+  const { user, ready } = useAuth();
   const [state, setState] = React.useState(loadState);
+  // Cloud sync indicator: idle | loading | saving | saved | error
+  const [syncStatus, setSyncStatus] = React.useState('idle');
 
-  // Persist on every change
+  // localStorage is always the offline cache — logged in or not.
   React.useEffect(() => { saveState(state); }, [state]);
+
+  // ── Cloud sync (Supabase) ───────────────────────────────────────────
+  // One row per user in `user_state` holds the whole store as JSON.
+  const loadedUserRef = React.useRef(null); // which user's row is loaded
+  const hydratingRef = React.useRef(false);  // skip the save that a hydrate triggers
+  const [cloudReady, setCloudReady] = React.useState(false); // gate saves until load finishes
+
+  // Login / logout: hydrate from the cloud (or seed it), or clear on sign-out.
+  React.useEffect(() => {
+    if (!ready || !window.sb) return;
+    const uid = user ? user.id : null;
+    const prev = loadedUserRef.current;
+    if (uid === prev) return;
+    loadedUserRef.current = uid;
+    setCloudReady(false);
+
+    if (!uid) {
+      // Signed out — clear to a fresh slate so the next person on this
+      // device doesn't see the previous account's routines.
+      if (prev) { hydratingRef.current = true; setState(freshState()); }
+      setSyncStatus('idle');
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setSyncStatus('loading');
+      try {
+        const { data, error } = await window.sb
+          .from('user_state').select('data').eq('user_id', uid).maybeSingle();
+        if (error) throw error;
+        if (cancelled) return;
+        if (data && data.data && data.data.v) {
+          hydratingRef.current = true;
+          setState(normalizeState(data.data));
+        } else {
+          // First sign-in: push whatever is on this device up as the seed.
+          const seed = loadState();
+          const { error: upErr } = await window.sb.from('user_state')
+            .upsert({ user_id: uid, data: seed, updated_at: new Date().toISOString() });
+          if (upErr) throw upErr;
+          hydratingRef.current = true;
+        }
+        if (!cancelled) { setSyncStatus('saved'); setCloudReady(true); }
+      } catch (e) {
+        console.warn('KindCue: cloud load failed', e);
+        if (!cancelled) setSyncStatus('error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ready, user]);
+
+  // Debounced push to the cloud on any change (only while signed in).
+  React.useEffect(() => {
+    if (!ready || !user || !window.sb || !cloudReady) return;
+    if (hydratingRef.current) { hydratingRef.current = false; return; }
+    const t = setTimeout(async () => {
+      setSyncStatus('saving');
+      try {
+        const { error } = await window.sb.from('user_state')
+          .upsert({ user_id: user.id, data: state, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        setSyncStatus('saved');
+      } catch (e) {
+        console.warn('KindCue: cloud save failed', e);
+        setSyncStatus('error');
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [state, user, ready, cloudReady]);
 
   // ── Board operations ────────────────────────────────────────────────
   const api = React.useMemo(() => ({
     state,
+    syncStatus,
 
     // Children
     setCurrentChild: (id) => setState((s) => ({ ...s, currentChildId: id })),
@@ -303,7 +382,7 @@ function StoreProvider({ children }) {
     removeUpload: (id) => setState((s) => ({
       ...s, uploads: (s.uploads || []).filter((u) => u.id !== id),
     })),
-  }), [state]);
+  }), [state, syncStatus]);
 
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;
 }

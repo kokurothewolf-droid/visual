@@ -15,19 +15,25 @@ function ShareModal({ open, board, onClose }) {
   }, [open]);
 
   // QR code — encodes the same share URL so a parent can point a phone
-  // camera at it. Long boards make long URLs; QR capacity tops out, so we
-  // fail gracefully and just show the copy field in that case.
-  const qrDataUrl = React.useMemo(() => {
+  // camera at it. The URL embeds the whole board, so it's long and the code
+  // is dense: we use the lowest error-correction level ('L') to keep the
+  // module count down, render it large, and display it pixel-crisp so a
+  // camera can actually resolve it. Past QR capacity we fall back to the
+  // copy field.
+  const qr = React.useMemo(() => {
     if (!open || !url || typeof window.qrcode !== 'function') return null;
     try {
-      const qr = window.qrcode(0, 'M');
-      qr.addData(url);
-      qr.make();
-      return qr.createDataURL(5, 12);
+      const code = window.qrcode(0, 'L');
+      code.addData(url);
+      code.make();
+      return { src: code.createDataURL(8, 0), modules: code.getModuleCount() };
     } catch (e) {
       return null; // too much data for a QR — copy link instead
     }
   }, [open, url]);
+  // A code this dense needs real screen size to scan. Warn when it's pushing
+  // the limit so the expectation is set.
+  const qrDense = qr && qr.modules > 120;
 
   React.useEffect(() => {
     if (!open) return;
@@ -117,19 +123,34 @@ function ShareModal({ open, board, onClose }) {
           </div>
         </div>
 
-        {qrDataUrl && (
+        {qr && (
           <div style={{ padding: '16px 24px 0' }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>Scan with a phone</div>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 16,
-              padding: 14, borderRadius: 14,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+              padding: 18, borderRadius: 14,
               background: 'var(--bg-tint)', border: '1px solid var(--hairline)',
             }}>
-              <img src={qrDataUrl} alt="QR code for this board"
-                   style={{ width: 116, height: 116, borderRadius: 8, background: '#fff', flexShrink: 0 }} />
-              <div className="meta" style={{ fontSize: 12.5 }}>
-                Point a camera at the code to open this board on another device —
-                handy for a teacher or therapist. No app or login needed.
+              <div style={{
+                padding: 12, background: '#fff', borderRadius: 10,
+                boxShadow: 'inset 0 0 0 1px var(--hairline)',
+              }}>
+                <img src={qr.src} alt="QR code for this board"
+                     width="240" height="240"
+                     style={{
+                       display: 'block', width: 240, height: 240,
+                       imageRendering: 'pixelated',
+                     }} />
+              </div>
+              <div className="meta" style={{ fontSize: 12.5, textAlign: 'center', maxWidth: 320 }}>
+                Point a phone camera at the code to open this board — handy for a
+                teacher or therapist. No app or login needed.
+                {qrDense && (
+                  <span style={{ display: 'block', marginTop: 6, color: 'var(--ink-3)' }}>
+                    This board packs a lot in, so the code is dense — hold the camera
+                    close and steady, or just copy the link below.
+                  </span>
+                )}
               </div>
             </div>
           </div>
