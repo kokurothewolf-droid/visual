@@ -1,5 +1,26 @@
 // components.jsx — shared layout pieces (Sidebar/Topbar removed in favor of top-nav.jsx)
 
+// Photo helpers ------------------------------------------------------------
+// A step's `photo` can be a real cover-fit picture (upload/search/AI) or a
+// transparent symbol meant to render un-cropped (ARASAAC: `fit: 'contain'`).
+// These three helpers keep that distinction consistent everywhere a step's
+// photo is rendered (cards, preview, print, library, import).
+function isSymbolPhoto(photo) {
+  return !!photo && (photo.fit === 'contain' || photo.src === 'ARASAAC');
+}
+function photoFrameBg(photo, fallbackBg = 'var(--bg-tint)') {
+  if (!photo) return fallbackBg;
+  return isSymbolPhoto(photo) ? '#fff' : fallbackBg;
+}
+function photoImgStyle(photo) {
+  const symbol = isSymbolPhoto(photo);
+  return {
+    width: '100%', height: '100%', display: 'block',
+    objectFit: symbol ? 'contain' : 'cover',
+    padding: symbol ? '10%' : 0,
+  };
+}
+
 // Page container with consistent padding + max width
 function Page({ children, pad = 28, maxW = 1240 }) {
   return (
@@ -146,4 +167,5 @@ function Progress({ value, total, color = 'var(--sage)' }) {
 
 Object.assign(window, {
   Page, CategoryPill, StepCard, TemplateCard, AvatarStack, Progress,
+  isSymbolPhoto, photoFrameBg, photoImgStyle,
 });
