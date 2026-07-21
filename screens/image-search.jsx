@@ -82,9 +82,64 @@ const SUGGESTED_AI = [
   'a backpack with books and a water bottle',
 ];
 
+// ── ARASAAC pictograms ──────────────────────────────────────────────
+// Official ARASAAC developer API (https://arasaac.org/developers/api).
+// Endpoints confirmed against the live API + an official-adjacent client:
+//   • Search:  GET {API}/pictograms/{lang}/search/{text}  → array of
+//              { _id, keywords:[{keyword,...}], score, tags, categories, ... }
+//   • Image:   https://static.arasaac.org/pictograms/{id}/{id}_{size}.png
+// Symbols © Government of Aragón, created by Sergio Palao for ARASAAC,
+// distributed under CC BY-NC-SA. Credit is stored on every step.
+const ARASAAC_API = 'https://api.arasaac.org/api';
+const ARASAAC_LANG = 'en';
+
+function arasaacImageUrl(id, { resolution = 500 } = {}) {
+  // Static image service (colored variant). Fast + cache-friendly; the API's
+  // dynamic-render endpoint hangs for uncached pictograms, so we use the CDN.
+  return `https://static.arasaac.org/pictograms/${id}/${id}_${resolution}.png`;
+}
+
+async function fetchPictograms(query, { language = ARASAAC_LANG } = {}) {
+  if (!query || !query.trim()) return [];
+  const res = await fetch(`${ARASAAC_API}/pictograms/${language}/search/${encodeURIComponent(query.trim())}`);
+  if (res.status === 404) return []; // ARASAAC answers 404 when nothing matches
+  if (!res.ok) throw new Error('ARASAAC search failed (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data
+    .slice()
+    .sort((a, b) => (b.score || 0) - (a.score || 0))
+    .filter((p) => p && p._id != null)
+    .map((p) => {
+      const kws = Array.isArray(p.keywords)
+        ? p.keywords.map((k) => k && k.keyword).filter(Boolean)
+        : [];
+      return { _id: p._id, title: kws[0] || ('Symbol ' + p._id), keywords: kws, url: arasaacImageUrl(p._id) };
+    });
+}
+
+// Map an ARASAAC hit to the shared result shape the app stores on a step.
+// `fit: 'contain'` marks it a transparent symbol so it renders un-cropped
+// on a light backdrop everywhere (see photoImgStyle in components.jsx).
+function pictogramToResult(p) {
+  return {
+    id: 'arasaac-' + p._id,
+    title: p.title,
+    src: 'ARASAAC',
+    thumb: p.url, full: p.url,
+    descriptionUrl: `https://arasaac.org/pictograms/${ARASAAC_LANG}/${p._id}`,
+    license: 'CC BY-NC-SA',
+    artist: 'Sergio Palao · ARASAAC',
+    fit: 'contain',
+    w: 500, h: 500,
+  };
+}
+
+const SUGGESTED_PICTOS = ['brush teeth', 'breakfast', 'get dressed', 'wash hands', 'toilet', 'shoes', 'school', 'sleep'];
+
 // ── Component ───────────────────────────────────────────────────────
 function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
-  const [tab, setTab] = React.useState('search'); // search | upload | stock | generate
+  const [tab, setTab] = React.useState('arasaac'); // arasaac | search | upload | generate
 
   React.useEffect(() => {
     if (!open) return;
@@ -126,7 +181,7 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
             <div className="stack-tight" style={{ flex: 1 }}>
               <div className="h3">Pick a picture for this step</div>
               <div className="meta" style={{ fontSize: 12 }}>
-                Search the web, upload your own, choose from your library, or generate.
+                Pick an ARASAAC symbol, search the web, upload your own, or generate.
               </div>
             </div>
             <button type="button" onClick={onClose}
@@ -136,12 +191,12 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
           </div>
 
           <div className="modal-tabs" style={{ display: 'flex', gap: 2, overflowX: 'auto' }}>
+            <TabButton on={tab === 'arasaac'} onClick={() => setTab('arasaac')}
+                       icon={<PictoTabIcon />} label="Symbols" sub="ARASAAC" />
             <TabButton on={tab === 'search'} onClick={() => setTab('search')}
                        icon={<IconSearch />} label="Search" sub="Wikimedia" />
             <TabButton on={tab === 'upload'} onClick={() => setTab('upload')}
                        icon={<IconImage />} label="Upload" sub="Your photos" />
-            <TabButton on={tab === 'stock'} onClick={() => setTab('stock')}
-                       icon={<IconLibrary />} label="Stock" sub="Curated library" />
             <TabButton on={tab === 'generate'} onClick={() => setTab('generate')}
                        icon={<IconSparkle />} label="Generate" sub="AI · Pollinations" />
           </div>
@@ -149,9 +204,9 @@ function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
 
         {/* Body */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {tab === 'arasaac'  && <PictogramPane initialQuery={initialQuery} onSelect={onSelect} />}
           {tab === 'search'   && <SearchPane initialQuery={initialQuery} onSelect={onSelect} />}
           {tab === 'upload'   && <UploadPane onSelect={onSelect} />}
-          {tab === 'stock'    && <StockPane initialQuery={initialQuery} onSelect={onSelect} />}
           {tab === 'generate' && <GeneratePane initialQuery={initialQuery} onSelect={onSelect} />}
         </div>
       </div>
@@ -367,188 +422,6 @@ async function fileToDataURL(file, { max = 1024 } = {}) {
   ctx.drawImage(img, 0, 0, w, h);
   const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
   return canvas.toDataURL(mime, mime === 'image/jpeg' ? 0.88 : undefined);
-}
-
-// ── Pane: Stock photo library ──────────────────────────────────────
-function StockPane({ initialQuery, onSelect }) {
-  const [manifest, setManifest] = React.useState(null);
-  const [status, setStatus] = React.useState('loading'); // loading | done | empty | error
-  const [error, setError] = React.useState(null);
-  const [q, setQ] = React.useState(initialQuery || '');
-  const [cat, setCat] = React.useState('all');
-
-  // Fetch the manifest once when the pane mounts.
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('assets/stock/manifest.json?t=' + Date.now());
-        if (!res.ok) throw new Error('Manifest not found');
-        const data = await res.json();
-        if (cancelled) return;
-        const list = Array.isArray(data.photos) ? data.photos : [];
-        setManifest(list);
-        setStatus(list.length ? 'done' : 'empty');
-      } catch (e) {
-        if (cancelled) return;
-        setError(e.message || 'Couldn\'t load stock library.');
-        setStatus('error');
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Filter
-  const filtered = React.useMemo(() => {
-    if (!manifest) return [];
-    const query = q.trim().toLowerCase();
-    return manifest.filter((p) => {
-      if (cat !== 'all' && p.category !== cat) return false;
-      if (!query) return true;
-      const hay = [p.title, p.category, ...(p.tags || [])].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(query);
-    });
-  }, [manifest, q, cat]);
-
-  // Build the category filter chips from whatever categories actually
-  // appear in the manifest — no point showing "Mealtime" if there's no
-  // food photo to pick from.
-  const usedCategories = React.useMemo(() => {
-    if (!manifest) return [];
-    const set = new Set();
-    for (const p of manifest) if (p.category) set.add(p.category);
-    return Object.values(CATEGORIES).filter((c) => set.has(c.id));
-  }, [manifest]);
-
-  return (
-    <>
-      <div style={{ padding: '14px 22px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <SearchField value={q} onChange={setQ}
-                     placeholder="Search the stock library…" />
-        {usedCategories.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button"
-                    className={'chip' + (cat === 'all' ? ' chip--active' : '')}
-                    onClick={() => setCat('all')}
-                    style={{ height: 26, fontSize: 12 }}>All</button>
-            {usedCategories.map((c) => {
-              const on = cat === c.id;
-              return (
-                <button key={c.id} type="button" onClick={() => setCat(c.id)}
-                        className={'chip' + (on ? ' chip--active' : '')}
-                        style={!on ? { background: c.bg, color: c.ink, boxShadow: 'none', height: 26, fontSize: 12 }
-                                   : { height: 26, fontSize: 12 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: on ? '#fff' : c.dot }} />
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: '6px 22px 18px' }}>
-        {status === 'loading' && <ResultsSkeleton label="Loading stock library…" />}
-        {status === 'error' && (
-          <ResultsEmpty
-            icon={<IconClose style={{ width: 28, height: 28 }} />}
-            title="Couldn't load the stock library"
-            body={error || 'Make sure assets/stock/manifest.json exists and is valid JSON.'} />
-        )}
-        {status === 'empty' && (
-          <ResultsEmpty
-            icon={<IconLibrary style={{ width: 28, height: 28 }} />}
-            title="No stock photos yet"
-            body="Drop image files in assets/stock/ and add them to manifest.json — they'll show up here automatically." />
-        )}
-        {status === 'done' && filtered.length === 0 && (
-          <ResultsEmpty
-            icon={<IconSearch style={{ width: 28, height: 28 }} />}
-            title={q ? `No matches for "${q}"` : 'No photos in this category'}
-            body="Try a different search or clear the category filter." />
-        )}
-        {status === 'done' && filtered.length > 0 && (
-          <>
-            <div className="meta" style={{ fontSize: 12, marginBottom: 12, color: 'var(--ink-2)' }}>
-              <strong style={{ color: 'var(--ink)' }}>{filtered.length}</strong> photo{filtered.length === 1 ? '' : 's'}
-              {q ? <> matching "<strong style={{ color: 'var(--ink)' }}>{q}</strong>"</> : null}
-            </div>
-            <div className="grid-search-results">
-              {filtered.map((p, i) => (
-                <StockTile key={p.file || i} photo={p}
-                           onSelect={() => onSelect(stockToResult(p))} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      <Footer
-        badge="Curated"
-        text="Curated stock photos served from this app. To add or update them, edit assets/stock/." />
-    </>
-  );
-}
-
-// Build the result object the rest of the app expects from a manifest entry.
-function stockToResult(p) {
-  const url = 'assets/stock/' + p.file;
-  return {
-    id: 'stock-' + (p.file || p.title),
-    title: p.title || p.file,
-    src: 'stock library',
-    thumb: url, full: url,
-    descriptionUrl: null,
-    license: p.credit || 'Curated',
-    artist: p.credit || '',
-    w: 0, h: 0,
-  };
-}
-
-function StockTile({ photo, onSelect }) {
-  const [errored, setErrored] = React.useState(false);
-  const url = 'assets/stock/' + photo.file;
-  const cat = CATEGORIES[photo.category];
-  return (
-    <button type="button" onClick={onSelect}
-            style={{
-              appearance: 'none', border: 0, background: 'transparent',
-              cursor: 'pointer', padding: 0, textAlign: 'left',
-              display: 'flex', flexDirection: 'column', gap: 6,
-              fontFamily: 'inherit',
-            }}>
-      <div style={{
-        aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', position: 'relative',
-        background: cat ? cat.bg : 'var(--bg-tint)',
-        boxShadow: '0 0 0 1px var(--hairline)',
-      }}>
-        {errored ? (
-          <div style={{
-            position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
-            padding: 12, textAlign: 'center', color: 'var(--ink-3)',
-            fontSize: 11.5, fontWeight: 700, lineHeight: 1.3,
-          }}>
-            Missing file<br />
-            <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .8 }}>{photo.file}</span>
-          </div>
-        ) : (
-          <img src={url} alt={photo.title} loading="lazy"
-               onError={() => setErrored(true)}
-               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        )}
-      </div>
-      <div style={{
-        fontSize: 12.5, color: 'var(--ink)', fontWeight: 500, lineHeight: 1.3,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{photo.title}</div>
-      {cat && (
-        <div style={{
-          fontSize: 10.5, fontWeight: 700, color: cat.ink, letterSpacing: '.04em',
-          textTransform: 'uppercase',
-        }}>{cat.label}</div>
-      )}
-    </button>
-  );
 }
 
 // ── Pane: Wikimedia search ────────────────────────────────────────
@@ -1053,6 +926,133 @@ function Footer({ badge, text }) {
       </span>
       <div className="meta" style={{ fontSize: 11.5, flex: 1 }}>{text}</div>
     </div>
+  );
+}
+
+function PictoTabIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <rect x="3" y="3" width="8" height="8" rx="2.2" fill="currentColor" opacity="0.9" />
+      <rect x="13" y="3" width="8" height="8" rx="2.2" fill="currentColor" opacity="0.5" />
+      <rect x="3" y="13" width="8" height="8" rx="2.2" fill="currentColor" opacity="0.5" />
+      <rect x="13" y="13" width="8" height="8" rx="2.2" fill="currentColor" opacity="0.9" />
+    </svg>
+  );
+}
+
+// ── Pane: ARASAAC pictogram search ─────────────────────────────────
+function PictogramPane({ initialQuery, onSelect }) {
+  const [q, setQ] = React.useState(initialQuery || '');
+  const [results, setResults] = React.useState([]);
+  const [status, setStatus] = React.useState('idle'); // idle | loading | done | empty | error
+  const [error, setError] = React.useState(null);
+  const inputRef = React.useRef(null);
+  const reqIdRef = React.useRef(0);
+
+  React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 60); }, []);
+
+  React.useEffect(() => {
+    if (!q || !q.trim()) { setResults([]); setStatus('idle'); return; }
+    const id = ++reqIdRef.current;
+    setStatus('loading'); setError(null);
+    const t = setTimeout(async () => {
+      try {
+        const items = await fetchPictograms(q);
+        if (reqIdRef.current !== id) return;
+        setResults(items);
+        setStatus(items.length ? 'done' : 'empty');
+      } catch (e) {
+        if (reqIdRef.current !== id) return;
+        setError(e.message || 'Search failed.');
+        setStatus('error'); setResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  return (
+    <>
+      <style>{`@keyframes picto-spin{to{transform:rotate(360deg)}} .picto-spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--hairline);border-top-color:var(--sage-deep);animation:picto-spin .8s linear infinite;display:inline-block}`}</style>
+      <div style={{ padding: '14px 22px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <SearchField ref={inputRef} value={q} onChange={setQ}
+                     placeholder="Search ARASAAC symbols (e.g. ‘brush teeth’)"
+                     onSubmit={() => results[0] && onSelect(pictogramToResult(results[0]))} />
+        <SuggestedChips items={SUGGESTED_PICTOS} onPick={setQ} />
+      </div>
+
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: '6px 22px 18px' }}>
+        {status === 'idle' && (
+          <ResultsEmpty icon={<PictoTabIcon style={{ width: 28, height: 28 }} />}
+                        title="Type to search symbols"
+                        body="Thousands of free ARASAAC picture symbols — the standard for visual schedules and AAC. Simple words match best (‘eat’, ‘tooth’, ‘bus’)." />
+        )}
+        {status === 'loading' && <ResultsSkeleton label="Searching ARASAAC…" />}
+        {status === 'error' && (
+          <ResultsEmpty icon={<IconClose style={{ width: 28, height: 28 }} />}
+                        title="Couldn't reach ARASAAC"
+                        body={error || 'Check your connection and try again.'} />
+        )}
+        {status === 'empty' && (
+          <ResultsEmpty icon={<IconSearch style={{ width: 28, height: 28 }} />}
+                        title={`No symbols for “${q}”`}
+                        body="Try a simpler or more common word — single words match more than phrases." />
+        )}
+        {status === 'done' && (
+          <>
+            <div className="meta" style={{ fontSize: 12, marginBottom: 12, color: 'var(--ink-2)' }}>
+              <strong style={{ color: 'var(--ink)' }}>{results.length}</strong> symbol{results.length === 1 ? '' : 's'} for
+              “<strong style={{ color: 'var(--ink)' }}>{q}</strong>”
+              <span style={{ color: 'var(--ink-3)' }}> · free ARASAAC symbols</span>
+            </div>
+            <div className="grid-search-results">
+              {results.map((p) => (
+                <PictogramTile key={p._id} picto={p} onSelect={() => onSelect(pictogramToResult(p))} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <Footer badge="ARASAAC"
+              text="Symbols by Sergio Palao for ARASAAC (arasaac.org), © Government of Aragón, licensed CC BY-NC-SA. The credit is saved with each step." />
+    </>
+  );
+}
+
+function PictogramTile({ picto, onSelect }) {
+  const [loaded, setLoaded] = React.useState(false);
+  const [errored, setErrored] = React.useState(false);
+  return (
+    <button type="button" onClick={onSelect} title={picto.title}
+            style={{
+              appearance: 'none', border: 0, background: 'transparent',
+              cursor: 'pointer', padding: 0, textAlign: 'left',
+              display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'inherit',
+            }}>
+      <div style={{
+        aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', position: 'relative',
+        background: '#fff', boxShadow: '0 0 0 1px var(--hairline)',
+        display: 'grid', placeItems: 'center',
+      }}>
+        {!loaded && !errored && <span className="picto-spin" />}
+        {errored && (
+          <div style={{ color: 'var(--ink-3)', fontSize: 11.5, fontWeight: 700, padding: 10, textAlign: 'center' }}>
+            Couldn't load
+          </div>
+        )}
+        <img src={picto.url} alt={picto.title}
+             onLoad={() => setLoaded(true)} onError={() => setErrored(true)}
+             style={{
+               position: 'absolute', inset: 0, width: '100%', height: '100%',
+               objectFit: 'contain', padding: '12%',
+               display: errored ? 'none' : 'block',
+             }} />
+      </div>
+      <div style={{
+        fontSize: 12.5, color: 'var(--ink)', fontWeight: 500, lineHeight: 1.3,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{picto.title}</div>
+    </button>
   );
 }
 
