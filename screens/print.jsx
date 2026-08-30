@@ -56,13 +56,15 @@ function PrintScreen({ route, navigate, tweaks }) {
         }}>
           <div>
             <div className="eyebrow">Layout</div>
-            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
               <LayoutSwatch active={layout === 'grid'} onClick={() => setLayout('grid')}
                             label="Grid" preview={<SwatchGrid />} />
               <LayoutSwatch active={layout === 'checklist'} onClick={() => setLayout('checklist')}
                             label="Checklist" preview={<SwatchChecklist />} />
               <LayoutSwatch active={layout === 'schedule'} onClick={() => setLayout('schedule')}
                             label="Schedule" preview={<SwatchSchedule />} />
+              <LayoutSwatch active={layout === 'starchart'} onClick={() => setLayout('starchart')}
+                            label="Star chart" preview={<SwatchStarChart />} />
             </div>
           </div>
 
@@ -197,6 +199,16 @@ const SwatchSchedule = () => (
     </div>
   </div>
 );
+const SwatchStarChart = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ display: 'flex', gap: 2 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{ width: 7, height: 7, borderRadius: 2, border: '1px solid var(--ink-mute)' }} />
+      ))}
+    </div>
+    <div style={{ height: 5, background: 'var(--ink-mute)', borderRadius: 1, width: '40%', opacity: .5 }} />
+  </div>
+);
 
 function PrintToggle({ label, subtitle, value, onChange }) {
   return (
@@ -269,6 +281,7 @@ function PrintPaper({ paper, layout, cols, board, child, showTimes, showFooter }
         {layout === 'grid' && <PaperGrid steps={board.steps} cols={cols} showTimes={showTimes} />}
         {layout === 'checklist' && <PaperChecklist steps={board.steps} showTimes={showTimes} />}
         {layout === 'schedule' && <PaperSchedule steps={board.steps} />}
+        {layout === 'starchart' && <PaperStarChart board={board} child={child} />}
       </div>
 
       {showFooter && <PaperFooter child={child} />}
@@ -343,14 +356,14 @@ function PaperGrid({ steps, cols, showTimes }) {
           <div key={s.id || i} style={{ display: 'flex', flexDirection: 'column', gap: 6, breakInside: 'avoid' }}>
             <div style={{
               aspectRatio: '1 / 1',
-              background: s.photo ? '#1f1f1f' : cat.bg, color: cat.ink,
+              background: photoFrameBg(s.photo, cat.bg), color: cat.ink,
               borderRadius: 10, position: 'relative',
               display: 'grid', placeItems: 'center',
               border: '1px solid #E5DECE', overflow: 'hidden',
             }}>
               {s.photo ? (
                 <img src={s.photo.thumb} alt={s.photo.title || s.title}
-                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                     style={photoImgStyle(s.photo)} />
               ) : (
                 <Icon name={s.icon} style={{ width: '52%', height: '52%' }} />
               )}
@@ -397,13 +410,13 @@ function PaperChecklist({ steps, showTimes }) {
             }} />
             <div style={{
               width: 56, height: 56, borderRadius: 8,
-              background: s.photo ? '#1f1f1f' : cat.bg, color: cat.ink,
+              background: photoFrameBg(s.photo, cat.bg), color: cat.ink,
               display: 'grid', placeItems: 'center', overflow: 'hidden',
               flexShrink: 0, position: 'relative',
             }}>
               {s.photo ? (
                 <img src={s.photo.thumb} alt={s.photo.title || s.title}
-                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                     style={photoImgStyle(s.photo)} />
               ) : (
                 <Icon name={s.icon} style={{ width: 32, height: 32 }} />
               )}
@@ -453,13 +466,13 @@ function PaperSchedule({ steps }) {
             }}>
               <div style={{
                 width: 48, height: 48, borderRadius: 8,
-                background: s.photo ? '#1f1f1f' : cat.bg, color: cat.ink,
+                background: photoFrameBg(s.photo, cat.bg), color: cat.ink,
                 display: 'grid', placeItems: 'center', overflow: 'hidden',
                 flexShrink: 0, position: 'relative',
               }}>
                 {s.photo ? (
                   <img src={s.photo.thumb} alt={s.photo.title || s.title}
-                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                       style={photoImgStyle(s.photo)} />
                 ) : (
                   <Icon name={s.icon} style={{ width: 28, height: 28 }} />
                 )}
@@ -477,6 +490,44 @@ function PaperSchedule({ steps }) {
           </React.Fragment>
         );
       })}
+    </div>
+  );
+}
+
+// ── Weekly star chart — a blank behavior chart to fill in by hand ──────
+function PaperStarChart({ board, child }) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 26 }}>
+      <div style={{ fontSize: 15, color: '#5A6058', textAlign: 'center' }}>
+        Add a star or sticker for every day {child ? child.name : 'you'} finish{child ? 'es' : ''} this routine.
+      </div>
+      <div style={{ display: 'flex', gap: 14 }}>
+        {days.map((d) => (
+          <div key={d} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8A8E83', textTransform: 'uppercase', letterSpacing: '.06em' }}>{d}</div>
+            <div style={{ width: 62, height: 62, borderRadius: 14, border: '2px dashed #D8CFBB', display: 'grid', placeItems: 'center' }}>
+              <IconStar style={{ width: 24, height: 24, color: '#E5DECE' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        {board.steps.slice(0, 9).map((s, i) => {
+          const cat = CATEGORIES[s.category] || CATEGORIES.routine;
+          return (
+            <div key={s.id || i} title={s.title} style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: cat.bg, color: cat.ink, display: 'grid', placeItems: 'center',
+            }}>
+              <Icon name={s.icon} style={{ width: 18, height: 18 }} />
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 11.5, color: '#8A8E83', textAlign: 'center', maxWidth: 460 }}>
+        The full routine: {board.steps.map((s) => s.title).join(' · ')}
+      </div>
     </div>
   );
 }

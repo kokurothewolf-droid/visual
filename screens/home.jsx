@@ -14,6 +14,8 @@ function HomeScreen({ route, navigate }) {
   const progress = todayBoard ? store.getProgress(todayBoard.id) : null;
   const stepsDone = progress ? progress.doneStepIds.length : 0;
   const stepsTotal = todayBoard?.steps.length || 0;
+  const streak = todayBoard ? computeStreak(progress?.completions) : 0;
+  const reminders = useStepReminders(todayBoard);
 
   return (
     <>
@@ -34,6 +36,11 @@ function HomeScreen({ route, navigate }) {
               <div style={{ padding: '28px 30px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <CategoryPill id={todayBoard.category} />
+                  {streak >= 2 && (
+                    <span className="pill" style={{ background: 'var(--sage-soft)', color: 'var(--sage-deep)' }}>
+                      <IconFlame style={{ width: 11, height: 11 }} /> {streak}-day streak
+                    </span>
+                  )}
                   {stepsDone > 0 && stepsDone < stepsTotal && (
                     <span className="pill pill--dot"
                           style={{ background: 'var(--sage-soft)', color: 'var(--sage-deep)' }}>
@@ -73,6 +80,11 @@ function HomeScreen({ route, navigate }) {
                           onClick={() => navigate('/b/' + todayBoard.id)}>
                     Edit board
                   </button>
+                  <button className="btn btn--soft btn--lg" type="button" onClick={reminders.toggle}
+                          title="A notification at each step's time, while KindCue is open in a tab">
+                    <IconBell style={{ opacity: reminders.enabled ? 1 : .55 }} />
+                    {reminders.enabled ? 'Reminders on' : 'Remind me'}
+                  </button>
                 </div>
               </div>
 
@@ -91,7 +103,7 @@ function HomeScreen({ route, navigate }) {
                   return (
                     <div key={s.id} style={{
                       aspectRatio: '1 / 1', borderRadius: 12,
-                      background: done ? 'var(--paper)' : (s.photo ? '#1f1f1f' : cat.bg),
+                      background: done ? 'var(--paper)' : photoFrameBg(s.photo, cat.bg),
                       color: cat.ink,
                       opacity: done ? .5 : 1,
                       border: '1px solid var(--hairline)',
@@ -100,7 +112,7 @@ function HomeScreen({ route, navigate }) {
                     }}>
                       {s.photo && !done ? (
                         <img src={s.photo.thumb} alt={s.title}
-                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                             style={photoImgStyle(s.photo)} />
                       ) : (
                         <Icon name={s.icon} style={{ width: '52%', height: '52%' }} />
                       )}
@@ -225,6 +237,45 @@ function HomeScreen({ route, navigate }) {
   );
 }
 
+// Schedules a browser Notification at each remaining step's time today,
+// while this tab stays open (no backend, so no true background push).
+// Enabled state persists per board in localStorage.
+function useStepReminders(board) {
+  const key = board ? 'kindcue.reminders.' + board.id : null;
+  const [enabled, setEnabled] = React.useState(() => key ? localStorage.getItem(key) === '1' : false);
+  React.useEffect(() => { if (key) localStorage.setItem(key, enabled ? '1' : '0'); }, [enabled, key]);
+
+  React.useEffect(() => {
+    if (!enabled || !board || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const timers = [];
+    const now = new Date();
+    board.steps.forEach((s) => {
+      const t = parseStepTime(s.time, board.schedule);
+      if (!t) return;
+      const target = new Date();
+      target.setHours(t.h, t.m, 0, 0);
+      const ms = target - now;
+      if (ms > 0) {
+        timers.push(setTimeout(() => {
+          try { new Notification('Time for: ' + s.title, { body: board.title, tag: 'kindcue-' + s.id }); } catch {}
+        }, ms));
+      }
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [enabled, board]);
+
+  const toggle = async () => {
+    if (!enabled) {
+      if (typeof Notification === 'undefined') { alert("This browser doesn't support notifications."); return; }
+      let perm = Notification.permission;
+      if (perm === 'default') perm = await Notification.requestPermission();
+      if (perm !== 'granted') { alert('Notifications are blocked — allow them in your browser settings to use reminders.'); return; }
+    }
+    setEnabled((v) => !v);
+  };
+  return { enabled, toggle };
+}
+
 // Helper used here and in Templates — create a new board from a template
 // dataset entry and navigate into the builder.
 function useFromTemplate(store, navigate, tpl) {
@@ -247,13 +298,14 @@ function useFromTemplate(store, navigate, tpl) {
     category: tpl.category,
     note: '',
   }));
-  const id = store.createBoard({
+  const board = store.createBoard({
     title: tpl.title,
     category: tpl.category,
     schedule: '',
     steps: seedSteps,
   });
-  navigate('/b/' + id);
+  navigate('/b/' + board.id);
+  window.hydrateStepsPictograms && window.hydrateStepsPictograms(store, board.id, board.steps);
 }
 
 // ── Shared sub-bits ────────────────────────────────────────────────

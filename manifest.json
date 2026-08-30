@@ -1,0 +1,15 @@
+{
+  "name": "KindCue — Visual Schedules & Social Stories",
+  "short_name": "KindCue",
+  "description": "Calm, sensory-friendly visual schedules and social stories for neurodiverse kids.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#F2EEE6",
+  "theme_color": "#F2EEE6",
+  "orientation": "any",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

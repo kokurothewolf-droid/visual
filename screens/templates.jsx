@@ -14,10 +14,10 @@ function TemplatesScreen({ route, navigate }) {
         actions={
           <button className="btn btn--primary" type="button"
                   onClick={() => {
-                    const id = store.createBoard({
+                    const board = store.createBoard({
                       title: 'New board', category: 'routine', steps: [],
                     });
-                    navigate('/b/' + id);
+                    navigate('/b/' + board.id);
                   }}>
             <IconPlus /><span className="btn-label">Blank board</span>
           </button>

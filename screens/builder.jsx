@@ -575,13 +575,13 @@ function StripView({ steps, selId, setSelId }) {
                       }}>
                 <div style={{
                   aspectRatio: '1 / 1', borderRadius: 10,
-                  background: s.photo ? '#1f1f1f' : cat.bg, color: cat.ink,
+                  background: photoFrameBg(s.photo, cat.bg), color: cat.ink,
                   display: 'grid', placeItems: 'center', position: 'relative',
                   overflow: 'hidden',
                 }}>
                   {s.photo ? (
                     <img src={s.photo.thumb} alt={s.title}
-                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                         style={photoImgStyle(s.photo)} />
                   ) : (
                     <Icon name={s.icon} style={{ width: '55%', height: '55%' }} />
                   )}
@@ -685,13 +685,13 @@ function BuilderInspector({ board, step, idx, total, onChange, onClose,
         {/* Preview tile */}
         <div style={{
           aspectRatio: '4 / 3', borderRadius: 12,
-          background: step.photo ? '#1f1f1f' : cat.bg, color: cat.ink,
+          background: photoFrameBg(step.photo, cat.bg), color: cat.ink,
           display: 'grid', placeItems: 'center', position: 'relative',
           overflow: 'hidden',
         }}>
           {step.photo ? (
             <img src={step.photo.thumb} alt={step.photo.title || step.title}
-                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                 style={photoImgStyle(step.photo)} />
           ) : (
             <Icon name={step.icon} style={{ width: '50%', height: '50%' }} />
           )}

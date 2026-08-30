@@ -13,6 +13,7 @@ function AppInner() {
   const store = useStore();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [authOpen, setAuthOpen] = React.useState(false);
+  const backupInputRef = React.useRef(null);
 
   // Apply tweaks ────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -90,6 +91,32 @@ function AppInner() {
                     onChange={(v) => setTweak('accent', v)} />
 
         <TweakSection label="Data" />
+        <TweakButton label="Download backup" secondary
+                     onClick={() => {
+                       const blob = new Blob([JSON.stringify(store.state, null, 2)], { type: 'application/json' });
+                       const url = URL.createObjectURL(blob);
+                       const a = document.createElement('a');
+                       a.href = url; a.download = 'kindcue-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+                       document.body.appendChild(a); a.click(); a.remove();
+                       setTimeout(() => URL.revokeObjectURL(url), 2000);
+                     }} />
+        <TweakButton label="Restore from file" secondary
+                     onClick={() => backupInputRef.current?.click()} />
+        <input ref={backupInputRef} type="file" accept="application/json,.json" hidden
+               onChange={async (e) => {
+                 const file = e.target.files?.[0];
+                 e.target.value = '';
+                 if (!file) return;
+                 try {
+                   const data = JSON.parse(await file.text());
+                   if (!data || typeof data !== 'object') throw new Error('bad file');
+                   if (!confirm('Restore this backup? It replaces all boards and children on this device.')) return;
+                   store.restoreBackup(data);
+                   alert('Backup restored.');
+                 } catch {
+                   alert("Couldn't read that backup file.");
+                 }
+               }} />
         <TweakButton label="Reset everything to demo"
                      secondary
                      onClick={() => {
@@ -103,7 +130,47 @@ function AppInner() {
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <StandaloneTweaksButton />
+      <InstallAppButton />
+      <AssistantWidget store={store} navigate={navigate} route={route} />
     </div>
+  );
+}
+
+// Floating "Install app" button — appears only when the browser fires
+// beforeinstallprompt (Android/desktop Chrome-family) and the app isn't
+// already installed. iOS/Safari has no such event; those users install via
+// Share → Add to Home Screen instead.
+function InstallAppButton() {
+  const [deferred, setDeferred] = React.useState(null);
+  const [installed, setInstalled] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+  );
+  React.useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); setDeferred(e); };
+    const onInstalled = () => { setInstalled(true); setDeferred(null); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+  if (installed || !deferred) return null;
+  return (
+    <button type="button"
+            onClick={async () => { await deferred.prompt(); setDeferred(null); }}
+            style={{
+              position: 'fixed', left: 18, bottom: 18, zIndex: 2147483645,
+              appearance: 'none', border: 0, cursor: 'pointer',
+              padding: '10px 16px 10px 12px', borderRadius: 999,
+              background: 'var(--sage-deep)', color: '#fff',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 8px 24px rgba(20, 18, 14, .25)',
+            }}>
+      <IconDownload style={{ width: 16, height: 16 }} />
+      Install app
+    </button>
   );
 }
 

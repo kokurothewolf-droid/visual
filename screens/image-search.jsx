@@ -137,6 +137,28 @@ function pictogramToResult(p) {
 
 const SUGGESTED_PICTOS = ['brush teeth', 'breakfast', 'get dressed', 'wash hands', 'toilet', 'shoes', 'school', 'sleep'];
 
+// Best-effort: look up a single ARASAAC symbol for an icon id (used to
+// auto-illustrate template/demo steps). Null on no match or network error
+// so callers just keep the line icon.
+async function pictogramForIcon(iconId) {
+  const q = (window.ICON_PICTO_QUERY || {})[iconId] || iconId;
+  try {
+    const hits = await fetchPictograms(q);
+    return hits[0] ? pictogramToResult(hits[0]) : null;
+  } catch { return null; }
+}
+
+// Fills in real pictures for a freshly-created board's steps, one at a
+// time as each search resolves, so template/demo boards arrive fully
+// illustrated instead of icon-only. Steps that already have a photo are
+// left alone.
+async function hydrateStepsPictograms(store, boardId, steps) {
+  await Promise.all((steps || []).filter((s) => !s.photo).map(async (s) => {
+    const photo = await pictogramForIcon(s.icon);
+    if (photo) store.updateStep(boardId, s.id, { photo });
+  }));
+}
+
 // ── Component ───────────────────────────────────────────────────────
 function ImageSearchModal({ open, query: initialQuery, onSelect, onClose }) {
   const [tab, setTab] = React.useState('arasaac'); // arasaac | search | upload | generate
@@ -1056,4 +1078,4 @@ function PictogramTile({ picto, onSelect }) {
   );
 }
 
-Object.assign(window, { ImageSearchModal });
+Object.assign(window, { ImageSearchModal, fetchPictograms, pictogramToResult, pictogramForIcon, hydrateStepsPictograms });

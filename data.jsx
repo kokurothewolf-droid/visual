@@ -74,6 +74,17 @@ const STEP_LIBRARY = [
   { id: 'star',     label: 'All done!',      category: 'calm'    },
 ];
 
+// Search terms tuned for ARASAAC's matcher — used to auto-attach a real
+// pictogram to a step whenever only its icon id is known (new template
+// boards, the two seed routines). Falls back to the icon id itself.
+const ICON_PICTO_QUERY = {
+  sun: 'wake up', bed: 'sleep', bathroom: 'toilet', tooth: 'brush teeth',
+  bath: 'shower', wash: 'wash hands', shirt: 'get dressed', shoe: 'shoes',
+  bowl: 'eat', cup: 'drink', backpack: 'backpack', book: 'read',
+  pencil: 'write', bus: 'school bus', car: 'car', wave: 'hello',
+  hand: 'help', heart: 'love', calm: 'calm down', star: 'finished',
+};
+
 Object.assign(window, {
-  CATEGORIES, MORNING_ROUTINE, TEMPLATES, RECENT_BOARDS, STEP_LIBRARY,
+  CATEGORIES, MORNING_ROUTINE, TEMPLATES, RECENT_BOARDS, STEP_LIBRARY, ICON_PICTO_QUERY,
 });

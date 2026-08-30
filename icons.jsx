@@ -340,6 +340,39 @@ const ICON_MAP = {
   star: IconStar, heart: IconHeart, clock: IconClock, image: IconImage,
 };
 
+// Streak / accessibility / utility icons ---------------------------------
+const IconFlame = (p) => (
+  <svg {...__iconProps} {...p}>
+    <path d="M16 4 C 20 10 24 13 24 19 a8 8 0 0 1 -16 0 C 8 14 11 12 12 9 C 12.5 12 14 13 14.5 11 C 15 9 13 7 16 4 Z" />
+  </svg>
+);
+const IconScan = (p) => (
+  <svg {...__iconProps} {...p}>
+    <circle cx="16" cy="16" r="9" />
+    <circle cx="16" cy="16" r="3" fill="currentColor" stroke="none" />
+    <path d="M16 2 V6 M16 26 V30 M2 16 H6 M26 16 H30" />
+  </svg>
+);
+const IconCalendar = (p) => (
+  <svg {...__iconProps} {...p}>
+    <rect x="5" y="7" width="22" height="20" rx="2" />
+    <path d="M5 13 H27" />
+    <path d="M11 4 V9 M21 4 V9" />
+  </svg>
+);
+const IconBell = (p) => (
+  <svg {...__iconProps} {...p}>
+    <path d="M9 13 a7 7 0 1 1 14 0 c0 5 2 7 2 7 H7 s2 -2 2 -7" />
+    <path d="M13 24 a3 3 0 0 0 6 0" />
+  </svg>
+);
+const IconDownload = (p) => (
+  <svg {...__iconProps} {...p}>
+    <path d="M16 5 V20 M10 15 L16 21 L22 15" />
+    <path d="M6 25 H26" />
+  </svg>
+);
+
 const Icon = ({ name, ...rest }) => {
   const C = ICON_MAP[name] || IconImage;
   return <C {...rest} />;
@@ -353,4 +386,5 @@ Object.assign(window, {
   IconSearch, IconShare, IconPrint, IconPlay, IconPause, IconSparkle,
   IconImage, IconText, IconClock, IconSpeaker, IconTrash, IconCopy,
   IconReorder, IconHeart, IconGrid, IconList, IconStar,
+  IconFlame, IconScan, IconCalendar, IconBell, IconDownload,
 });

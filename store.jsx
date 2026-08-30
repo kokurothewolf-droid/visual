@@ -48,7 +48,7 @@ function seedMorningRoutine() {
 
 function seedBedtime() {
   return {
-    id: uid('board'),
+    id: 'board_bedtime_demo',
     title: 'Bedtime Routine',
     childId: null,
     category: 'routine',
@@ -229,7 +229,7 @@ function StoreProvider({ children }) {
         steps: (template?.steps || []).map((s) => ({ ...s, id: uid('s') })),
       };
       setState((s) => ({ ...s, boards: [board, ...s.boards] }));
-      return id;
+      return board;
     },
 
     updateBoard: (id, patch) => setState((s) => ({
@@ -339,8 +339,19 @@ function StoreProvider({ children }) {
       return { ...s, progress: { ...s.progress, [boardId]: { ...cur, mood, updatedAt: Date.now() } } };
     }),
 
+    // Streak tracking — a day-key log of full completions, separate from
+    // doneStepIds (which resets every run). Dedupes same-day calls.
+    logCompletion: (boardId) => setState((s) => {
+      const cur = s.progress[boardId] || { doneStepIds: [], updatedAt: 0 };
+      const today = dayKey(Date.now());
+      const completions = cur.completions || [];
+      if (completions[completions.length - 1] === today) return s;
+      return { ...s, progress: { ...s.progress, [boardId]: { ...cur, completions: [...completions, today] } } };
+    }),
+
     // Whole-store
     resetAll: () => setState(freshState()),
+    restoreBackup: (data) => setState(normalizeState(data)),
 
     // Import a board (from share URL) — preserves steps verbatim but assigns
     // new ids so we don't collide with existing entries.
@@ -384,6 +395,24 @@ function StoreProvider({ children }) {
     })),
   }), [state, syncStatus]);
 
+  // One-time per session: if the two starter demo boards are still on their
+  // default line icons — a fresh install, or one that hasn't been online
+  // yet — fetch real ARASAAC pictures for them in the background. Once a
+  // board's steps have photos this is a no-op, so it's safe to check every
+  // mount.
+  const seededPicsRef = React.useRef(false);
+  React.useEffect(() => {
+    if (seededPicsRef.current) return;
+    seededPicsRef.current = true;
+    ['board_morning_demo', 'board_bedtime_demo'].forEach((bid) => {
+      const b = api.getBoard(bid);
+      if (b && b.steps.some((s) => !s.photo) && window.hydrateStepsPictograms) {
+        window.hydrateStepsPictograms(api, bid, b.steps);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;
 }
 
@@ -422,7 +451,36 @@ function decodeBoardFromShare(s) {
   } catch { return null; }
 }
 
+// ── Streak + time helpers ─────────────────────────────────────────────
+// Steps store a plain "H:MM" string with no AM/PM marker — we infer it
+// from the board's schedule text (e.g. "starts 7:30 PM"), the only place
+// that context lives, defaulting to a literal reading otherwise. Shared by
+// the calendar export and step-time reminders.
+function dayKey(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function computeStreak(completions) {
+  if (!completions || !completions.length) return 0;
+  const days = new Set(completions);
+  let streak = 0;
+  const cursor = new Date();
+  if (!days.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  while (days.has(dayKey(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  return streak;
+}
+function parseStepTime(timeStr, scheduleStr) {
+  if (!timeStr) return null;
+  const m = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h < 12 && /\bpm\b/i.test(scheduleStr || '')) h += 12;
+  return { h, m: min };
+}
+
 Object.assign(window, {
   StoreProvider, StoreContext, useStore,
   encodeBoardForShare, decodeBoardFromShare,
+  dayKey, computeStreak, parseStepTime,
 });

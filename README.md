@@ -1,8 +1,8 @@
-# Daybook — Visual Story Builder
+# KindCue — Visual Schedules & Social Stories
 
-A design prototype for a calm, sensory-friendly tool that helps caregivers, teachers, and therapists build **visual schedules** and **social stories** for neurodiverse kids.
+A calm, sensory-friendly tool that helps caregivers, teachers, and therapists build **visual schedules** and **social stories** for neurodiverse kids.
 
-Inspired by printable PDF handouts from places like the Monarch Center for Autism — but interactive, customizable, and shareable.
+Inspired by printable PDF handouts from places like the Monarch Center for Autism — but interactive, customizable, shareable, installable, and works offline.
 
 ## What's inside
 
@@ -13,7 +13,8 @@ Inspired by printable PDF handouts from places like the Monarch Center for Autis
 | **Builder** | The core 3-column editor: step library · board canvas · step inspector |
 | **Child View** | Big-card, swipe-through view for the child following the routine |
 | **My Boards** | Saved boards, grid or list, with progress and shared-with avatars |
-| **Print Preview** | Monarch-style printable export — grid, checklist, or schedule layout |
+| **Print Preview** | Monarch-style printable export — grid, checklist, or schedule layout, plus a printable star chart |
+| **About** | About/info screen |
 
 ### Highlights
 
@@ -22,6 +23,9 @@ Inspired by printable PDF handouts from places like the Monarch Center for Autis
 - **Image picker** has two tabs: **Search** real freely-licensed photos from **Wikimedia Commons**, or **Generate** custom images with **Pollinations.ai** (FLUX). Both are free, key-less, and CORS-open — works on GitHub Pages with no proxy.
 - **Tweaks panel** for live customization: text size, density, accent color, category colors on/off, screen jump
 - **Print-ready CSS** with US Letter / A4 paper sizes and three handout layouts
+- **Pictograms** sourced live from **ARASAAC** (© Government of Aragón, CC BY-NC-SA), with credit shown per step
+- **Account sync** via Supabase (email/password + Google), with local-first storage so the app still works signed out
+- **Installable PWA** with offline support (service worker + manifest), switch/single-tap scanning and full keyboard nav in Child View, streak tracking, QR sharing, JSON backup/restore, step-time reminders, and .ics calendar export
 
 ## Tech
 
@@ -34,20 +38,34 @@ Pure static HTML — no build step required.
 Files are organized as:
 
 ```
-index.html              ← entry, design tokens, font load
+index.html              ← entry, design tokens, font load, manifest link
 app.jsx                 ← router + Tweaks panel
+router.jsx              ← hash-based router
+store.jsx               ← global state + localStorage persistence, streaks, reminders, .ics export
+auth.jsx                ← Supabase client + auth context (email/password + Google)
 data.jsx                ← sample templates and step content
 icons.jsx               ← line-art icon library
 components.jsx          ← Sidebar, Topbar, StepCard, etc.
 tweaks-panel.jsx        ← floating live-tweak UI
+manifest.json           ← PWA manifest
+sw.js                   ← service worker (offline cache)
 screens/
   home.jsx
   templates.jsx
   builder.jsx           ← the headline screen
-  preview.jsx           ← child-facing view
+  preview.jsx           ← child-facing view, switch scanning + keyboard nav
   library.jsx
-  print.jsx             ← printable handout export
+  print.jsx             ← printable handout export + star chart
   image-search.jsx      ← web image picker modal
+  about.jsx
+  import.jsx            ← import a shared board
+components/
+  top-nav.jsx
+  board-menu.jsx        ← keyboard nav, QR/download
+  share-modal.jsx
+  auth-modal.jsx
+  confetti.jsx
+  feelings.jsx
 ```
 
 ## Deploy to GitHub Pages
@@ -103,9 +121,11 @@ See `assets/stock/README.md` for the full field reference.
 ## Notes for adapting
 
 - **Image search** finds real, freely-licensed images from **Wikimedia Commons** — works out of the box on GitHub Pages (CORS-friendly, no API key, no proxy). License and source are attached to each picked image and shown in the inspector.
-- **No data persistence.** Edits live in React state only. To persist boards, wire up `localStorage` or a backend.
+- **Pictograms** come from the **ARASAAC** API (`api.arasaac.org`, images from `static.arasaac.org`), symbols by Sergio Palao, © Government of Aragón, CC BY-NC-SA — credit is stored per step and shown in-app.
+- **Data persistence:** boards, children, and progress persist to `localStorage` (`daybook.v1`) so state survives reloads offline. Signed-in users additionally sync via Supabase (`auth.jsx`).
+- **Offline/installable:** `manifest.json` + `sw.js` make this an installable PWA with offline support.
 - **Tweaks panel** only appears inside the design tool toolbar by default. On GitHub Pages, a small floating "Customize" button at the bottom right opens the same panel.
 
 ## License
 
-This is a design prototype. The Daybook name, branding, and code are sample work — feel free to fork and adapt.
+This is a design prototype. The KindCue name, branding, and code are sample work — feel free to fork and adapt.

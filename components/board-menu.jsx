@@ -42,6 +42,8 @@ function BoardMenu({ board, anchor, onClose, navigate }) {
                   }} />
         <MenuItem icon={<IconPrint />} label="Open print preview"
                   onClick={() => { onClose(); navigate('/b/' + board.id + '/print'); }} />
+        <MenuItem icon={<IconCalendar />} label="Add to calendar"
+                  onClick={() => { downloadICS(board); onClose(); }} />
         <MenuItem icon={<IconStar />} label={board.reward ? 'Edit reward goal' : 'Set a reward goal'}
                   onClick={() => {
                     const goalStr = prompt('How many steps to earn the reward?', String(board.reward?.goal || board.steps.length));
@@ -124,6 +126,49 @@ function MenuItem({ icon, label, onClick, danger = false }) {
       {label}
     </button>
   );
+}
+
+// .ics export — a recurring daily VEVENT per step, in the caregiver's
+// local ("floating") time, inferred from the board's schedule text. No
+// server, no account needed.
+function icsEscape(str) {
+  return String(str).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+function boardToICS(board) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const today = new Date();
+  const dateStr = today.getFullYear() + pad(today.getMonth() + 1) + pad(today.getDate());
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KindCue//Visual Schedules//EN', 'CALSCALE:GREGORIAN'];
+  board.steps.forEach((s, i) => {
+    const t = parseStepTime(s.time, board.schedule);
+    if (!t) return;
+    const dur = Math.max(1, s.duration || 5);
+    const endTotal = t.h * 60 + t.m + dur;
+    const endH = Math.floor(endTotal / 60) % 24, endM = endTotal % 60;
+    lines.push(
+      'BEGIN:VEVENT',
+      'UID:kindcue-' + board.id + '-' + (s.id || i) + '@kindcue.site',
+      'DTSTAMP:' + dtstamp,
+      'DTSTART:' + dateStr + 'T' + pad(t.h) + pad(t.m) + '00',
+      'DTEND:' + dateStr + 'T' + pad(endH) + pad(endM) + '00',
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:' + icsEscape(s.title + ' — ' + board.title),
+    );
+    if (s.note) lines.push('DESCRIPTION:' + icsEscape(s.note));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+function downloadICS(board) {
+  const ics = boardToICS(board);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (board.title || 'routine').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 Object.assign(window, { BoardMenu });

@@ -16,18 +16,119 @@ function PreviewScreen({ route, navigate }) {
   const [idx, setIdx] = React.useState(0);
   const [mode, setMode] = React.useState('steps'); // steps | firstThen
   const [showFeelings, setShowFeelings] = React.useState(false);
+  const [switchScanning, setSwitchScanning] = React.useState(() => localStorage.getItem('kindcue.switchScanning') === '1');
+  React.useEffect(() => { localStorage.setItem('kindcue.switchScanning', switchScanning ? '1' : '0'); }, [switchScanning]);
 
   // Initial position: first un-done step. Also decide whether to show the
   // feelings check-in (only on a fresh run — nothing done, no mood yet).
   React.useEffect(() => {
     if (!board) return;
-    const progress = store.getProgress(board.id);
-    const doneSet = new Set(progress.doneStepIds);
+    const p = store.getProgress(board.id);
+    const doneSet = new Set(p.doneStepIds);
     const next = board.steps.findIndex((s) => !doneSet.has(s.id));
     setIdx(next >= 0 ? next : 0);
-    setShowFeelings(progress.doneStepIds.length === 0 && !progress.mood);
+    setShowFeelings(p.doneStepIds.length === 0 && !p.mood);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
+
+  // Everything below is computed defensively (board may still be null, or
+  // have zero steps) — hooks must run unconditionally, in the same order,
+  // every render, so the "not found" / "no steps" views can only be
+  // returned further down, after all hooks are declared.
+  const steps = board?.steps || [];
+  const step = steps[idx] || steps[0];
+  const cat = CATEGORIES[step?.category] || CATEGORIES.routine;
+  const progress = board ? store.getProgress(board.id) : { doneStepIds: [], updatedAt: 0 };
+  const doneSet = new Set(progress.doneStepIds);
+  const doneCount = progress.doneStepIds.length;
+  const allDone = steps.length > 0 && steps.every((s) => doneSet.has(s.id));
+  const reward = board?.reward || null;
+  const goal = reward?.goal || steps.length;
+  const child = board ? store.state.children.find((c) => c.id === board.childId) : null;
+  const streak = computeStreak(progress.completions);
+
+  const markDoneAndAdvance = () => {
+    if (!board || !step) return;
+    store.setStepDone(board.id, step.id, true);
+    setIdx((i) => Math.min(steps.length - 1, i + 1));
+  };
+  const prev = () => setIdx((i) => Math.max(0, i - 1));
+  const reset = () => { if (!board) return; store.resetProgress(board.id); setIdx(0); setShowFeelings(true); };
+
+  // Kokoro TTS (in-browser), falls back to the browser's speechSynthesis
+  // automatically if Kokoro can't load — see tts.jsx.
+  const [ttsBusy, setTtsBusy] = React.useState(false);
+  const speak = (s = step) => {
+    if (!s) return;
+    const text = s.note ? s.title + '. ' + s.note : s.title;
+    setTtsBusy(true);
+    window.KindCueTTS.speakStep(text, {
+      onStart: () => setTtsBusy(false),
+      onEnd: () => setTtsBusy(false),
+    });
+  };
+
+  // Log a completion (for the streak) the moment every step is done.
+  React.useEffect(() => {
+    if (board && allDone) store.logCompletion(board.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDone, board?.id]);
+
+  // ── Switch-access scanning ──────────────────────────────────────────
+  // Cycles a highlight through the available actions; any tap/click or a
+  // Space/Enter press activates whichever one is lit — the standard
+  // single-switch AAC access pattern for kids who use one external switch
+  // instead of pointing at a specific button. Off by default; a caregiver
+  // flips it on per-device from the header.
+  const scanTargets = React.useMemo(() => {
+    if (!board || steps.length === 0) return [];
+    if (allDone) return ['again', 'editback'];
+    if (mode !== 'steps') return [];
+    const list = ['speak'];
+    if (idx > 0) list.push('prev');
+    list.push('done');
+    if (idx < steps.length - 1) list.push('next');
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, allDone, mode, idx, steps.length]);
+
+  const [scanTick, setScanTick] = React.useState(0);
+  React.useEffect(() => {
+    setScanTick(0);
+    if (!switchScanning || !scanTargets.length) return;
+    const t = setInterval(() => setScanTick((v) => (v + 1) % scanTargets.length), 1600);
+    return () => clearInterval(t);
+  }, [switchScanning, scanTargets.length, idx, mode]);
+  const scanKey = switchScanning && scanTargets.length ? scanTargets[scanTick % scanTargets.length] : null;
+  const scanRing = (key) => scanKey === key
+    ? { boxShadow: '0 0 0 4px rgba(255,255,255,.95), 0 0 0 8px var(--sage-deep)', transform: 'scale(1.07)' }
+    : null;
+  const activateScan = () => {
+    const key = scanTargets[scanTick % scanTargets.length];
+    if (key === 'speak') speak();
+    else if (key === 'prev') prev();
+    else if (key === 'done') markDoneAndAdvance();
+    else if (key === 'next') setIdx((i) => Math.min(steps.length - 1, i + 1));
+    else if (key === 'again') reset();
+    else if (key === 'editback' && board) navigate('/b/' + board.id);
+  };
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (showFeelings || !board) return;
+      if (switchScanning) {
+        if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); activateScan(); }
+        return;
+      }
+      if (allDone || mode !== 'steps') return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); setIdx((i) => Math.min(steps.length - 1, i + 1)); }
+      else if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); markDoneAndAdvance(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [switchScanning, scanTick, scanTargets, showFeelings, allDone, mode, idx, steps.length, board?.id]);
 
   if (!board) {
     return (
@@ -41,7 +142,6 @@ function PreviewScreen({ route, navigate }) {
     );
   }
 
-  const steps = board.steps;
   if (steps.length === 0) {
     return (
       <div style={{ padding: 60, textAlign: 'center' }}>
@@ -54,36 +154,7 @@ function PreviewScreen({ route, navigate }) {
     );
   }
 
-  const step = steps[idx] || steps[0];
-  const cat = CATEGORIES[step.category] || CATEGORIES.routine;
-  const progress = store.getProgress(board.id);
-  const doneSet = new Set(progress.doneStepIds);
   const isDone = doneSet.has(step.id);
-  const doneCount = progress.doneStepIds.length;
-  const allDone = steps.every((s) => doneSet.has(s.id));
-
-  // Reward goal: explicit on the board, else simply finishing every step.
-  const reward = board.reward || null;
-  const goal = reward?.goal || steps.length;
-
-  const child = store.state.children.find((c) => c.id === board.childId);
-
-  const markDoneAndAdvance = () => {
-    store.setStepDone(board.id, step.id, true);
-    setIdx((i) => Math.min(steps.length - 1, i + 1));
-  };
-  const prev = () => setIdx((i) => Math.max(0, i - 1));
-  const reset = () => { store.resetProgress(board.id); setIdx(0); setShowFeelings(true); };
-
-  // Speech synthesis — built into every modern browser, free, no key.
-  const speak = (s = step) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const text = s.note ? s.title + '. ' + s.note : s.title;
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95; u.pitch = 1.05;
-    window.speechSynthesis.speak(u);
-  };
 
   return (
     <div style={{
@@ -96,6 +167,12 @@ function PreviewScreen({ route, navigate }) {
       <style>{`@keyframes popIn{0%{transform:scale(.96)}100%{transform:scale(1)}}`}</style>
 
       <Confetti fire={allDone} />
+
+      {switchScanning && scanTargets.length > 0 && !showFeelings && (
+        <div onClick={activateScan}
+             title="Tap anywhere to choose the highlighted button"
+             style={{ position: 'fixed', inset: 0, zIndex: 500, cursor: 'pointer' }} />
+      )}
 
       {/* Feelings check-in overlay */}
       {showFeelings && !allDone && (
@@ -141,8 +218,30 @@ function PreviewScreen({ route, navigate }) {
           {Math.min(doneCount, goal)}<span style={{ opacity: .5 }}>/{goal}</span>
         </div>
 
-        <button type="button" onClick={() => speak()} style={previewButtonStyle(cat.ink)}>
-          <IconSpeaker /> Read to me
+        {streak >= 2 && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 999,
+            background: 'rgba(255,255,255,.7)', color: cat.ink,
+            fontWeight: 700, fontSize: 14,
+          }} title={streak + '-day streak'}>
+            <IconFlame style={{ width: 18, height: 18 }} />
+            {streak}-day streak!
+          </div>
+        )}
+
+        <button type="button" onClick={() => setSwitchScanning((v) => !v)}
+                title="Switch-access scanning: highlights one button at a time — any tap or Space selects it"
+                style={{
+                  ...previewButtonStyle(cat.ink),
+                  background: switchScanning ? cat.ink : 'rgba(255,255,255,.7)',
+                  color: switchScanning ? '#fff' : cat.ink,
+                }}>
+          <IconScan style={{ width: 16, height: 16 }} /> {switchScanning ? 'Scanning on' : 'Scanning'}
+        </button>
+
+        <button type="button" onClick={() => speak()} disabled={ttsBusy} style={{ ...previewButtonStyle(cat.ink), ...(scanRing('speak') || {}), ...(ttsBusy ? { opacity: .7, cursor: 'wait' } : null) }}>
+          <IconSpeaker /> {ttsBusy ? 'Loading…' : 'Read to me'}
         </button>
       </header>
 
@@ -220,11 +319,11 @@ function PreviewScreen({ route, navigate }) {
       <main style={{ flex: 1, padding: '28px 24px', display: 'grid', placeItems: 'center' }}>
         {allDone ? (
           <AllDoneCard catInk={cat.ink} catBg={cat.bg} reward={reward}
-                       starCount={doneCount}
+                       starCount={doneCount} scanKey={scanKey}
                        onReset={reset} onBackToEdit={() => navigate('/b/' + board.id)} />
         ) : mode === 'firstThen' ? (
           <FirstThenView steps={steps} idx={idx} doneSet={doneSet}
-                         onDid={markDoneAndAdvance} onSpeak={speak} />
+                         onDid={markDoneAndAdvance} onSpeak={speak} ttsBusy={ttsBusy} />
         ) : (
           <StepCardBig step={step} idx={idx} total={steps.length} cat={cat} />
         )}
@@ -237,7 +336,7 @@ function PreviewScreen({ route, navigate }) {
           display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'center',
         }}>
           <button type="button" onClick={prev} disabled={idx === 0}
-                  style={previewRoundButtonStyle(cat.ink, idx === 0)}>
+                  style={{ ...previewRoundButtonStyle(cat.ink, idx === 0), ...(scanRing('prev') || {}) }}>
             <IconArrowL style={{ width: 28, height: 28 }} />
           </button>
 
@@ -249,6 +348,7 @@ function PreviewScreen({ route, navigate }) {
                     background: cat.ink, color: '#fff',
                     fontWeight: 700, fontSize: 22, fontFamily: 'inherit',
                     boxShadow: '0 8px 24px rgba(48, 40, 20, .15)',
+                    ...(scanRing('done') || {}),
                   }}>
             <IconCheck style={{ width: 26, height: 26 }} />
             {idx === steps.length - 1 ? 'All done!' : "I did it"}
@@ -256,7 +356,7 @@ function PreviewScreen({ route, navigate }) {
 
           <button type="button" onClick={() => setIdx((i) => Math.min(steps.length - 1, i + 1))}
                   disabled={idx === steps.length - 1}
-                  style={previewRoundButtonStyle(cat.ink, idx === steps.length - 1)}>
+                  style={{ ...previewRoundButtonStyle(cat.ink, idx === steps.length - 1), ...(scanRing('next') || {}) }}>
             <IconArrowR style={{ width: 28, height: 28 }} />
           </button>
         </footer>
@@ -277,21 +377,21 @@ function StepCardBig({ step, idx, total, cat }) {
     }}>
       <div style={{
         aspectRatio: '5 / 3',
-        background: step.photo ? '#1f1f1f' : cat.bg,
+        background: photoFrameBg(step.photo, cat.bg),
         color: cat.ink, position: 'relative',
         display: 'grid', placeItems: 'center', overflow: 'hidden',
       }}>
         {step.photo ? (
           <img src={step.photo.thumb} alt={step.photo.title || step.title}
-               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+               style={photoImgStyle(step.photo)} />
         ) : (
           <Icon name={step.icon} style={{ width: '36%', height: '54%' }} />
         )}
         <div style={{
           position: 'absolute', top: 22, left: 24,
           fontSize: 14, fontWeight: 700,
-          color: step.photo ? '#fff' : cat.ink, opacity: .85,
-          textShadow: step.photo ? '0 1px 4px rgba(0,0,0,.5)' : 'none',
+          color: (step.photo && !isSymbolPhoto(step.photo)) ? '#fff' : cat.ink, opacity: .85,
+          textShadow: (step.photo && !isSymbolPhoto(step.photo)) ? '0 1px 4px rgba(0,0,0,.5)' : 'none',
         }}>STEP {idx + 1} OF {total}</div>
       </div>
 
@@ -385,7 +485,7 @@ function TimerRing({ minutes, catInk }) {
 }
 
 // ── First → Then view ──────────────────────────────────────────────────
-function FirstThenView({ steps, idx, doneSet, onDid, onSpeak }) {
+function FirstThenView({ steps, idx, doneSet, onDid, onSpeak, ttsBusy }) {
   const first = steps[idx];
   const then = steps[idx + 1] || null;
   const firstCat = CATEGORIES[first.category] || CATEGORIES.routine;
@@ -407,14 +507,14 @@ function FirstThenView({ steps, idx, doneSet, onDid, onSpeak }) {
       }}>{label}</div>
       <div style={{
         aspectRatio: '1 / 1',
-        background: s && s.photo ? '#1f1f1f' : (cat ? cat.bg : 'var(--bg-tint)'),
+        background: s && s.photo ? photoFrameBg(s.photo) : (cat ? cat.bg : 'var(--bg-tint)'),
         color: cat ? cat.ink : 'var(--ink-3)',
         position: 'relative', display: 'grid', placeItems: 'center', overflow: 'hidden',
       }}>
         {s ? (
           s.photo ? (
             <img src={s.photo.thumb} alt={s.title}
-                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                 style={photoImgStyle(s.photo)} />
           ) : <Icon name={s.icon} style={{ width: '46%', height: '46%' }} />
         ) : (
           <IconStar style={{ width: '40%', height: '40%' }} />
@@ -439,8 +539,8 @@ function FirstThenView({ steps, idx, doneSet, onDid, onSpeak }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
-        <button type="button" onClick={() => onSpeak(first)} style={previewButtonStyle(firstCat.ink)}>
-          <IconSpeaker /> Read to me
+        <button type="button" onClick={() => onSpeak(first)} disabled={ttsBusy} style={{ ...previewButtonStyle(firstCat.ink), ...(ttsBusy ? { opacity: .7, cursor: 'wait' } : null) }}>
+          <IconSpeaker /> {ttsBusy ? 'Loading…' : 'Read to me'}
         </button>
         <button type="button" onClick={onDid}
                 style={{
@@ -487,7 +587,10 @@ function RewardBar({ doneCount, goal, label, catInk }) {
   );
 }
 
-function AllDoneCard({ catInk, catBg, reward, starCount, onReset, onBackToEdit }) {
+function AllDoneCard({ catInk, catBg, reward, starCount, scanKey, onReset, onBackToEdit }) {
+  const ring = (key) => scanKey === key
+    ? { boxShadow: '0 0 0 4px rgba(255,255,255,.95), 0 0 0 8px ' + catInk, transform: 'scale(1.05)' }
+    : null;
   return (
     <div style={{
       width: '100%', maxWidth: 560,
@@ -529,6 +632,7 @@ function AllDoneCard({ catInk, catBg, reward, starCount, onReset, onBackToEdit }
                   background: catInk, color: '#fff',
                   fontFamily: 'inherit', fontWeight: 700, fontSize: 16,
                   display: 'inline-flex', alignItems: 'center', gap: 8,
+                  ...(ring('again') || {}),
                 }}>
           Do it again
         </button>
@@ -538,6 +642,7 @@ function AllDoneCard({ catInk, catBg, reward, starCount, onReset, onBackToEdit }
                   height: 52, padding: '0 28px', borderRadius: 999,
                   background: 'transparent', color: 'var(--ink-2)',
                   fontFamily: 'inherit', fontWeight: 700, fontSize: 16,
+                  ...(ring('editback') || {}),
                 }}>
           Back to edit
         </button>

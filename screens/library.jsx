@@ -124,13 +124,13 @@ function LibraryBoardCard({ board, navigate }) {
         ) : (
           previewSteps.map((s, i) => (
             <div key={i} style={{
-              background: s.photo ? '#1f1f1f' : 'rgba(255,255,255,.55)',
+              background: photoFrameBg(s.photo, 'rgba(255,255,255,.55)'),
               borderRadius: 8, position: 'relative', overflow: 'hidden',
               display: 'grid', placeItems: 'center', color: cat.ink,
             }}>
               {s.photo ? (
                 <img src={s.photo.thumb} alt=""
-                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                     style={photoImgStyle(s.photo)} />
               ) : (
                 <Icon name={s.icon} style={{ width: '46%', height: '46%' }} />
               )}

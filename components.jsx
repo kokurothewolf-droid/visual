@@ -57,14 +57,11 @@ function StepCard({ step, idx, selected, onSelect, showNumber = true, showTime =
     <div className={'step-card' + (selected ? ' step-card--selected' : '')}
          onClick={onSelect}
          style={{ '--cat-bg': cat.bg, '--cat-ink': cat.ink }}>
-      <div className="step-art" style={hasPhoto ? { background: '#1f1f1f' } : undefined}>
+      <div className="step-art" style={{ background: photoFrameBg(step.photo, cat.bg) }}>
         {showNumber && idx != null && <div className="step-num">{idx + 1}</div>}
         {hasPhoto ? (
           <img src={step.photo.thumb} alt={step.photo.title || step.title}
-               style={{
-                 position: 'absolute', inset: 0, width: '100%', height: '100%',
-                 objectFit: 'cover',
-               }} />
+               style={{ position: 'absolute', inset: 0, ...photoImgStyle(step.photo) }} />
         ) : (
           <Icon name={step.icon} />
         )}
